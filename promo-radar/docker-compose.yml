@@ -1,0 +1,10 @@
+services:
+  promo-radar:
+    build: .
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config   # editar niches.yaml sem rebuild (reinicie o container)
+    restart: unless-stopped

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="row" style="justify-content:space-between">
+  <nav class="tabs">{% for t in tabs %}<a class="{{ 'on' if t==tab }}" href="/?tab={{t}}{% if niche %}&niche={{niche}}{% endif %}">{{ t|capitalize }}</a>{% endfor %}</nav>
+  <form method="post" action="/collect" class="row">
+    <select name="niche"><option value="">Todos os nichos</option>{% for n in niches %}<option value="{{n.id}}">{{n.name}}</option>{% endfor %}</select>
+    <button class="go">Coletar agora</button>
+  </form>
+</div>
+<div class="row">{% for n in niches %}<a class="pill" href="/?tab={{tab}}&niche={{n.id}}">{{n.name}}</a>{% endfor %}<a class="pill" href="/?tab={{tab}}">todos</a></div>
+
+{% if not posts %}<p class="meta" style="margin-top:20px">Nada aqui. {% if tab=='fila' %}Clique em "Coletar agora".{% endif %}</p>{% endif %}
+<div class="grid">
+{% for p in posts %}
+<div class="card">
+  <div class="meta"><b>{{ p.niche_name }}</b> · #{{p.id}} · {{ p.status }} · nota {{ p.score }} · {{ p.offer.source }}</div>
+  {% if p.offer.image_url %}<img class="thumb" src="{{ p.offer.image_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}
+  <div class="bubble">{{ p.text|wa|safe }}</div>
+  <div class="meta">Preço checado: {{ p.price_checked_at|local }}{% if p.stale and tab=='fila' and p.offer.source=='api' %} <span class="warn">(velho — será revalidado ao enviar)</span>{% endif %}</div>
+  {% if p.note %}<div class="meta {{ 'warn' if 'SUSPEITO' in p.note or 'ocultos' in p.note else '' }}">📝 {{ p.note }}</div>{% endif %}
+  {% if tab=='fila' %}
+  <div class="row">
+    <a class="btn go" href="/posts/{{p.id}}/send">Enviar →</a>
+    {% if p.status=='pending' %}<form method="post" action="/posts/{{p.id}}/approve"><button>Aprovar p/ depois</button></form>{% endif %}
+    {% if p.offer.source=='api' %}<form method="post" action="/posts/{{p.id}}/refresh"><button>Revalidar preço</button></form>{% endif %}
+    <form method="post" action="/posts/{{p.id}}/reject"><button class="no">Descartar</button></form>
+  </div>
+  <form method="post" action="/posts/{{p.id}}/headline" class="row"><input name="headline" value="{{p.headline}}" style="flex:1"><button>Trocar chamada</button></form>
+  <form method="post" action="/posts/{{p.id}}/coupon" class="row"><input name="coupon" placeholder="Cupom (opcional)" value="{{p.offer.coupon or ''}}" style="flex:1"><button>Salvar cupom</button></form>
+  {% elif tab=='enviados' %}<div class="meta">Enviado em {{ p.sent_at|local }} · monitorado por 48h</div>
+  {% elif tab=='encerrados' %}<div class="meta bad">Encerrada em {{ p.ended_at|local }} — apague na comunidade se ainda for possível.</div>{% endif %}
+</div>
+{% endfor %}
+</div>
+
+<details><summary>➕ Acompanhar um ASIN (watchlist)</summary>
+<p class="meta">O ASIN fica no painel; a cada coleta o preço é verificado pela API. Útil para produtos que você sabe que entram em promoção.</p>
+<form method="post" action="/watch" class="row">
+  <select name="niche">{% for n in niches %}<option value="{{n.id}}">{{n.name}}</option>{% endfor %}</select>
+  <input name="asin" placeholder="B0XXXXXXXX" required pattern="[A-Za-z0-9]{10}"><button class="go">Adicionar</button>
+</form>
+{% for nid, lst in watch.items() %}{% if lst %}<div class="meta">{{nid}}: {% for a in lst %}<form method="post" action="/watch/remove" style="display:inline"><input type="hidden" name="niche" value="{{nid}}"><input type="hidden" name="asin" value="{{a}}"><button title="remover">{{a}} ✕</button></form> {% endfor %}</div>{% endif %}{% endfor %}
+</details>
+
+<details><summary>✍️ Post manual (sem Creators API)</summary>
+<p class="meta">Para a fase inicial, antes das 10 vendas em 30 dias que liberam a API. Com <code>ALLOW_MANUAL_PRICES=false</code> (padrão) o post sai <b>sem preço</b>, porque a política só autoriza preço vindo da API. Link: use o gerado no SiteStripe/Associates (amazon.com.br com ?tag=).</p>
+<form method="post" action="/manual" class="row">
+  <select name="niche">{% for n in niches %}<option value="{{n.id}}">{{n.name}}</option>{% endfor %}</select>
+  <input name="asin" placeholder="ASIN" required><input name="title" placeholder="Título do produto (como na Amazon)" required style="flex:1;min-width:220px">
+  <input name="url" placeholder="https://www.amazon.com.br/dp/...?tag=..." required style="flex:1;min-width:220px">
+  <input name="basis" placeholder="De (ex: 599,00)" size="10"><input name="price" placeholder="Por (ex: 316,00)" size="10"><input name="coupon" placeholder="Cupom" size="10">
+  <button class="go">Criar</button>
+</form>
+</details>
+
+<details><summary>📊 Últimas coletas</summary>
+<table><tr><th>Quando</th><th>Nicho</th><th>Lidos</th><th>Na fila</th><th>Descartes (motivo: qtd)</th><th>Erro</th></tr>
+{% for r in runs %}<tr><td>{{ r.started_at|local }}</td><td>{{ r.niche_id }}</td><td>{{ r.fetched }}</td><td>{{ r.queued }}</td>
+<td>{% for k,v in r.rejected.items() %}{{k}}: {{v}}{% if not loop.last %}, {% endif %}{% endfor %}</td><td class="bad">{{ r.error or '' }}</td></tr>{% endfor %}
+</table></details>
+{% endblock %}

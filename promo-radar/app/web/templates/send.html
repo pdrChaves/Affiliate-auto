@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block body %}
+<p><a href="/">← voltar</a></p>
+<div class="card" style="max-width:560px;margin:0 auto">
+  <div class="meta"><b>{{ p.niche_name }}</b> → enviar em: <b>{{ p.target or '(defina whatsapp_target no niches.yaml)' }}</b></div>
+  {% if r.ok %}
+    <div class="bubble" id="preview">{{ p.text|wa|safe }}</div>
+    <textarea id="raw" style="position:absolute;left:-9999px">{{ p.text }}</textarea>
+    <div class="meta">Preço checado: {{ p.price_checked_at|local }}</div>
+    <div class="row">
+      <a class="btn go" href="{{ r.share_url }}" target="_blank" rel="noopener">Abrir no WhatsApp</a>
+      <button onclick="copyText()">Copiar texto</button>
+      <span id="ok" class="meta"></span>
+    </div>
+    <p class="meta">1) Abra no WhatsApp (ou cole o texto) → 2) escolha a comunidade → 3) aguarde o card do link carregar → 4) envie.<br>Depois confirme aqui para ativar o monitoramento da oferta.</p>
+    <form method="post" action="/posts/{{p.id}}/sent"><button class="go">✅ Já enviei</button></form>
+  {% else %}
+    <p class="bad">Esta oferta não está mais válida: {{ p.note or p.status }}. Nada foi enviado.</p>
+  {% endif %}
+</div>
+<script>
+function copyText(){const t=document.getElementById('raw').value;
+ (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>ok('Copiado!')).catch(()=>{const a=document.getElementById('raw');a.select();document.execCommand('copy');ok('Copiado!')});}
+function ok(m){document.getElementById('ok').textContent=m}
+</script>
+{% endblock %}

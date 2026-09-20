@@ -1,0 +1,55 @@
+# Cada nicho = uma comunidade/grupo de WhatsApp.
+# Coleta: "searches" (busca por palavra-chave/categoria) e/ou "watchlist" (ASINs que você acompanha).
+niches:
+  - id: radar-homem
+    name: "Radar do Homem"
+    whatsapp_target: "#80 PROMOS RADAR DO HOMEM"     # só um rótulo para você saber para onde enviar
+    enabled: true
+    collect_every_minutes: 60
+    min_discount_pct: 25          # desconto mínimo exibido pela Amazon
+    min_price: 30.00              # evita produtos irrelevantes
+    max_price: 1500.00
+    require_buybox: true
+    cooldown_hours: 72            # não repetir o mesmo produto antes disso (a menos que caia mais)
+    repost_if_drop_pct: 5         # ...ou se o preço cair mais X% desde o último post
+    max_posts_per_run: 5
+    posting_window: ["08:00", "22:30"]
+    searches:
+      - { keywords: "tênis corrida masculino", search_index: "Fashion" }
+      - { keywords: "camiseta dry fit masculina", search_index: "Fashion" }
+      - { keywords: "barbeador elétrico", search_index: "HealthPersonalCare" }
+    watchlist: []
+    style:
+      emoji_price: "🔥"
+      headline_fallbacks:
+        - "PRA TREINAR NO CONFORTO"
+        - "ACHADO PRO SEU TREINO"
+        - "PREÇO BOM DEMAIS PRA PASSAR"
+        - "UPGRADE NO SEU ESTILO"
+      tone: "direto, masculino, fitness/estilo, sem exageros"
+
+  - id: lego
+    name: "LEGO"
+    whatsapp_target: "Will Garimpou | LEGO"
+    enabled: true
+    collect_every_minutes: 90
+    min_discount_pct: 20
+    min_price: 50.00
+    max_price: 3000.00
+    require_buybox: true
+    cooldown_hours: 96
+    repost_if_drop_pct: 5
+    max_posts_per_run: 4
+    posting_window: ["09:00", "23:00"]
+    searches:
+      - { keywords: "LEGO Speed Champions", search_index: "Toys" }
+      - { keywords: "LEGO Technic", search_index: "Toys" }
+      - { keywords: "LEGO Minecraft", search_index: "Toys" }
+    watchlist: []
+    style:
+      emoji_price: "🧱"
+      headline_fallbacks:
+        - "MAIS UM PRA COLEÇÃO"
+        - "GARIMPO LEGO DO DIA"
+        - "ESSE VALE A MONTAGEM"
+      tone: "colecionador, empolgado mas honesto, referências ao tema do set"
