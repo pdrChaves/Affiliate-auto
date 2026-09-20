@@ -1,0 +1,17 @@
+[
+ {
+  "rota": "GET /",
+  "concorrencia": 10,
+  "req": 52,
+  "rps": 2.0,
+  "p50_ms": 3796.5,
+  "p95_ms": 9309.8,
+  "p99_ms": 10761.7,
+  "max_ms": 10400.9,
+  "erros": 0,
+  "codes": {
+   "200": 52
+  },
+  "cenario": "fila durante expurgo"
+ }
+]

@@ -1,0 +1,214 @@
+[
+ {
+  "id": "SEC-01",
+  "teste": "Rotas do painel exigem autenticação",
+  "passou": true,
+  "detalhe": [
+   [
+    "GET",
+    "/",
+    401
+   ],
+   [
+    "POST",
+    "/collect",
+    401
+   ],
+   [
+    "POST",
+    "/watch",
+    401
+   ],
+   [
+    "POST",
+    "/watch/remove",
+    401
+   ],
+   [
+    "POST",
+    "/manual",
+    401
+   ],
+   [
+    "POST",
+    "/posts/1/approve",
+    401
+   ],
+   [
+    "POST",
+    "/posts/1/reject",
+    401
+   ],
+   [
+    "POST",
+    "/posts/1/refresh",
+    401
+   ],
+   [
+    "POST",
+    "/posts/1/headline",
+    401
+   ],
+   [
+    "POST",
+    "/posts/1/coupon",
+    401
+   ],
+   [
+    "GET",
+    "/posts/1/send",
+    401
+   ],
+   [
+    "POST",
+    "/posts/1/sent",
+    401
+   ]
+  ],
+  "severidade_se_falha": "critica"
+ },
+ {
+  "id": "SEC-02",
+  "teste": "Senha errada é recusada",
+  "passou": true,
+  "detalhe": 401,
+  "severidade_se_falha": "critica"
+ },
+ {
+  "id": "SEC-03",
+  "teste": "Senha padrão de exemplo NÃO é aceita",
+  "passou": false,
+  "detalhe": "o servidor sobe e aceita 'admin/troque-esta-senha' sem aviso",
+  "severidade_se_falha": "alta"
+ },
+ {
+  "id": "SEC-04",
+  "teste": "Força bruta é limitada (lockout/rate limit)",
+  "passou": false,
+  "detalhe": "300 tentativas em 0.3s (974/s), nenhuma bloqueada",
+  "severidade_se_falha": "alta"
+ },
+ {
+  "id": "SEC-05",
+  "teste": "Documentação da API não fica pública",
+  "passou": false,
+  "detalhe": {
+   "/docs": 200,
+   "/redoc": 200,
+   "/openapi.json": 200,
+   "/health": 200
+  },
+  "severidade_se_falha": "media"
+ },
+ {
+  "id": "SEC-06",
+  "teste": "Cabeçalhos de segurança presentes",
+  "passou": false,
+  "detalhe": {
+   "ausentes": [
+    "content-security-policy",
+    "x-frame-options",
+    "x-content-type-options",
+    "referrer-policy",
+    "strict-transport-security"
+   ]
+  },
+  "severidade_se_falha": "media"
+ },
+ {
+  "id": "SEC-07",
+  "teste": "POST de outra origem (CSRF) é recusado",
+  "passou": false,
+  "detalhe": "POST com Origin=https://site-malicioso.com → 303 (aceito)",
+  "severidade_se_falha": "alta"
+ },
+ {
+  "id": "SEC-08",
+  "teste": "XSS: HTML injetado é escapado (painel e tela de envio)",
+  "passou": true,
+  "detalhe": {
+   "payloads_refletidos_crus": []
+  },
+  "severidade_se_falha": "alta"
+ },
+ {
+  "id": "SEC-09",
+  "teste": "XSS via campo de chamada (headline)",
+  "passou": true,
+  "detalhe": "atributo value escapado",
+  "severidade_se_falha": "alta"
+ },
+ {
+  "id": "SEC-10",
+  "teste": "Link manual só aceita domínio da Amazon",
+  "passou": false,
+  "detalhe": {
+   "https://evil.example/phish?x=amazon.com.br&tag=t-20": 303,
+   "javascript:alert(1)//amazon.com.br?tag=1": 303,
+   "https://amazon.com.br.evil.example/?tag=x": 303
+  },
+  "severidade_se_falha": "media"
+ },
+ {
+  "id": "SEC-11",
+  "teste": "SQL injection em parâmetros",
+  "passou": true,
+  "detalhe": {
+   "status": {
+    "' OR '1'='1": 200,
+    "lego' UNION SELECT 1--": 200,
+    "1; DROP TABLE posts;--": 200
+   },
+   "banco_intacto": true
+  },
+  "severidade_se_falha": "critica"
+ },
+ {
+  "id": "SEC-12",
+  "teste": "Entradas inválidas retornam 4xx (não 500)",
+  "passou": false,
+  "detalhe": {
+   "post_inexistente_refresh": 500,
+   "post_inexistente_headline": 500,
+   "post_inexistente_approve": 303,
+   "nicho_inexistente_collect": 500,
+   "nicho_inexistente_manual": 500,
+   "preco_invalido_manual": 500
+  },
+  "severidade_se_falha": "baixa"
+ },
+ {
+  "id": "SEC-13",
+  "teste": "Limite de tamanho de entrada",
+  "passou": false,
+  "detalhe": "título de 10 MB → 303 em 0.43s (gravado no banco)",
+  "severidade_se_falha": "media"
+ },
+ {
+  "id": "SEC-14",
+  "teste": "Injeção de cabeçalho via redirect",
+  "passou": true,
+  "detalhe": {
+   "status": 303,
+   "location": "/?tab=fila%0D%0ASet-Cookie:%20pwn=1"
+  },
+  "severidade_se_falha": "media"
+ },
+ {
+  "id": "SEC-15",
+  "teste": "Open redirect",
+  "passou": true,
+  "detalhe": "/?tab=//evil.example",
+  "severidade_se_falha": "media"
+ },
+ {
+  "id": "SEC-16",
+  "teste": "/health não expõe detalhes internos",
+  "passou": false,
+  "detalhe": {
+   "ok": true,
+   "mode": "mock"
+  },
+  "severidade_se_falha": "baixa"
+ }
+]

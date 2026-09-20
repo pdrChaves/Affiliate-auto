@@ -1,0 +1,16 @@
+app/amazon/creators.py:65:27: E741 Ambiguous variable name: `l`
+app/amazon/mock.py:52:20: S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+app/cli.py:21:89: S104 Possible binding to all interfaces
+app/config.py:48:27: S105 Possible hardcoded password assigned to: "panel_password"
+app/db.py:8:32: F401 [*] `datetime.timedelta` imported but unused
+app/db.py:99:26: S608 Possible SQL injection vector through string-based query construction
+app/db.py:122:121: E501 Line too long (121 > 120)
+app/db.py:147:20: S608 Possible SQL injection vector through string-based query construction
+app/db.py:150:13: S608 Possible SQL injection vector through string-based query construction
+app/pipeline/copywriter.py:40:17: S324 Probable use of insecure hash functions in `hashlib`: `md5`
+app/pipeline/scorer.py:30:5: C901 `evaluate` is too complex (16 > 10)
+app/service.py:44:9: C901 `collect` is too complex (11 > 10)
+app/web/server.py:42:5: C901 `create_app` is too complex (24 > 10)
+app/web/server.py:60:43: B008 Do not perform function call `Depends` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+Found 14 errors.
+[*] 1 fixable with the `--fix` option.

@@ -1,0 +1,13 @@
+app/cli.py
+    F 16:0 main - C (11)
+app/service.py
+    M 187:4 PromoService.monitor_sent - C (15)
+    M 44:4 PromoService.collect - C (14)
+app/pipeline/scorer.py
+    F 30:0 evaluate - D (25)
+app/amazon/creators.py
+    F 58:0 parse_item - C (12)
+    M 167:4 CreatorsClient.search - C (11)
+
+6 blocks (classes, functions, methods) analyzed.
+Average complexity: C (14.666666666666666)

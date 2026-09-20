@@ -1,0 +1,47 @@
+[
+ {
+  "rota": "GET /",
+  "concorrencia": 4,
+  "req": 34773,
+  "rps": 580.2,
+  "p50_ms": 6.7,
+  "p95_ms": 11.0,
+  "p99_ms": 13.8,
+  "max_ms": 294.9,
+  "erros": 0,
+  "codes": {
+   "200": 34773
+  },
+  "cenario": "soak misto: fila"
+ },
+ {
+  "rota": "GET /posts/2/send",
+  "concorrencia": 4,
+  "req": 67272,
+  "rps": 1121.9,
+  "p50_ms": 3.3,
+  "p95_ms": 5.9,
+  "p99_ms": 7.7,
+  "max_ms": 21.0,
+  "erros": 0,
+  "codes": {
+   "200": 67272
+  },
+  "cenario": "soak misto: envio"
+ },
+ {
+  "rota": "POST /collect",
+  "concorrencia": 2,
+  "req": 15435,
+  "rps": 257.4,
+  "p50_ms": 7.6,
+  "p95_ms": 10.1,
+  "p99_ms": 11.3,
+  "max_ms": 48.5,
+  "erros": 0,
+  "codes": {
+   "303": 15435
+  },
+  "cenario": "soak misto: coleta"
+ }
+]

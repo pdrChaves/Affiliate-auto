@@ -1,0 +1,83 @@
+Run started:2026-09-20 02:08:19.867114+00:00
+
+Test results:
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: app/amazon/mock.py:52:19
+51	        self.jitter = jitter              # variação aleatória de preço (simula mercado)
+52	        self.rng = random.Random(seed)
+53	        self.overrides: dict[str, float] = {}   # testes podem forçar preço
+
+--------------------------------------------------
+>> Issue: [B104:hardcoded_bind_all_interfaces] Possible binding to all interfaces.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-605 (https://cwe.mitre.org/data/definitions/605.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b104_hardcoded_bind_all_interfaces.html
+   Location: app/cli.py:21:88
+20	        import uvicorn
+21	        uvicorn.run("app.web.server:app_from_env", factory=True, host=os.getenv("HOST", "0.0.0.0"),
+22	                    port=int(os.getenv("PORT", "8000")))
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Low
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: app/db.py:99:25
+98	        """Apaga título/preço/imagem/texto de posts antigos, mantendo só ASIN, nicho, status e datas."""
+99	        rows = self._all(f"SELECT id, asin FROM posts WHERE created_at < ? AND text != '[conteúdo expurgado]' "
+100	                         f"AND status IN ({','.join('?' * len(statuses))})", (older_than.isoformat(), *statuses))
+101	        for r in rows:
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Low
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: app/db.py:147:19
+146	        cols = ", ".join(f"{k}=?" for k in conv)
+147	        self._exec(f"UPDATE posts SET {cols} WHERE id=?", (*conv.values(), post_id))
+148	
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Low
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: app/db.py:150:12
+149	    def last_post_for(self, niche_id: str, asin: str, statuses: list[str]) -> dict | None:
+150	        q = f"""SELECT * FROM posts WHERE niche_id=? AND asin=? AND status IN ({','.join('?' * len(statuses))})
+151	                ORDER BY created_at DESC LIMIT 1"""
+152	        rows = self._all(q, (niche_id, asin, *statuses))
+
+--------------------------------------------------
+>> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
+   Severity: High   Confidence: High
+   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html
+   Location: app/pipeline/copywriter.py:40:16
+39	    avoid = avoid or []
+40	    start = int(hashlib.md5(offer.asin.encode()).hexdigest(), 16) % len(options)
+41	    ordered = options[start:] + options[:start]
+
+--------------------------------------------------
+
+Code scanned:
+	Total lines of code: 1121
+	Total lines skipped (#nosec): 0
+	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
+
+Run metrics:
+	Total issues (by severity):
+		Undefined: 0
+		Low: 1
+		Medium: 4
+		High: 1
+	Total issues (by confidence):
+		Undefined: 0
+		Low: 3
+		Medium: 1
+		High: 2
+Files skipped (0):
