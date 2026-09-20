@@ -1,31 +1,32 @@
-.............................                                            [100%]
+................................................................         [100%]
 ================================ tests coverage ================================
 _______________ coverage: platform linux, python 3.11.15-final-0 _______________
 
-Name                         Stmts   Miss Branch BrPart  Cover   Missing
-------------------------------------------------------------------------
+Name                         Stmts   Miss Branch BrPart  Cover
+--------------------------------------------------------------
 app/__init__.py                  0      0      0      0   100%
-app/amazon/__init__.py           9      7      4      0    15%   5-11
+app/amazon/__init__.py           9      7      4      0    15%
 app/amazon/base.py               8      0      0      0   100%
-app/amazon/creators.py         125     27     44      8    71%   62, 90, 122, 145-146, 148, 151, 153, 163->161, 169-188
-app/amazon/mock.py              28      1      4      1    94%   60
+app/amazon/creators.py         140      8     46     13    89%
+app/amazon/mock.py              28      1      4      1    94%
 app/amazon/ratelimit.py         14      0      2      0   100%
-app/app_factory.py              12      3      0      0    75%   15-17
-app/cli.py                      27     27     14      0     0%   9-42
-app/config.py                   65      1      0      0    98%   97
-app/db.py                      104      5     22      2    94%   56, 78, 136, 165, 169
+app/app_factory.py              12      3      0      0    75%
+app/cli.py                      28      8     14      3    74%
+app/config.py                   81      1      6      0    99%
+app/db.py                      150      0     28      1    99%
 app/models.py                   39      0      4      0   100%
 app/pipeline/__init__.py         0      0      0      0   100%
-app/pipeline/copywriter.py      41      2      6      0    96%   77-78
-app/pipeline/render.py          37      0     14      1    98%   32->34
-app/pipeline/scorer.py          55      0     30      0   100%
-app/scheduler.py                16     10      4      0    30%   14-24
-app/senders/__init__.py          7      4      2      0    33%   6-9
-app/senders/base.py              6      1      0      0    83%   20
-app/senders/telegram.py         13     13      0      0     0%   3-23
-app/service.py                 154     17     42      8    86%   57-62, 79, 85, 94-95, 116, 120-121, 147, 150, 194, 201, 204->207
+app/pipeline/copywriter.py      41      2      6      0    96%
+app/pipeline/render.py          37      0     14      1    98%
+app/pipeline/scorer.py          57      0     24      0   100%
+app/scheduler.py                17      0      4      1    95%
+app/senders/__init__.py          7      4      2      0    33%
+app/senders/base.py              6      1      0      0    83%
+app/senders/telegram.py         13      0      0      0   100%
+app/service.py                 263     15     62     10    92%
 app/web/__init__.py              0      0      0      0   100%
-app/web/server.py              116     22     14      5    78%   48-51, 64, 71, 88, 98-99, 103-104, 111-113, 117-118, 122-123, 127-128, 143, 159
-------------------------------------------------------------------------
-TOTAL                          876    140    206     25    81%
-29 passed in 1.54s
+app/web/security.py            108      5     22      5    92%
+app/web/server.py              209      8     22      2    95%
+--------------------------------------------------------------
+TOTAL                         1267     63    264     37    93%
+64 passed in 4.95s

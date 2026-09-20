@@ -1,5 +1,7 @@
 import sys, time, json, os, random
-sys.path.insert(0, "/home/claude/promo-radar")
+from pathlib import Path
+OUT = Path(__file__).resolve().parent / "results"
+sys.path.insert(0, str(OUT.parent.parent))
 from datetime import timedelta
 from app.db import DB
 from app.models import Offer, PostStatus, utcnow
@@ -34,4 +36,4 @@ res = {"posts": N, "insercao_s": round(ins,2), "tamanho_db_MB": round(os.path.ge
 if len(sys.argv)>3: print(json.dumps(res)); sys.exit()
 t=time.perf_counter(); n=db.purge_product_content(utcnow()-timedelta(hours=24), ["sent","expired","rejected"]); res["purge_s"]=round(time.perf_counter()-t,2); res["purge_linhas"]=n
 res["tamanho_db_pos_purge_MB"]=round(os.path.getsize(path)/1e6,1)
-print(json.dumps(res, ensure_ascii=False)); json.dump(res, open(f"volume_{N}.json","w"), indent=1)
+print(json.dumps(res, ensure_ascii=False)); json.dump(res, open(OUT / f"volume_{N}.json", "w"), indent=1)

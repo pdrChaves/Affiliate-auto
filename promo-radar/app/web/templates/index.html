@@ -2,11 +2,12 @@
 {% block body %}
 <div class="row" style="justify-content:space-between">
   <nav class="tabs">{% for t in tabs %}<a class="{{ 'on' if t==tab }}" href="/?tab={{t}}{% if niche %}&niche={{niche}}{% endif %}">{{ t|capitalize }}</a>{% endfor %}</nav>
-  <form method="post" action="/collect" class="row">
+  <form method="post" action="/collect" class="row"><input type="hidden" name="csrf" value="{{csrf}}">
     <select name="niche"><option value="">Todos os nichos</option>{% for n in niches %}<option value="{{n.id}}">{{n.name}}</option>{% endfor %}</select>
     <button class="go">Coletar agora</button>
   </form>
 </div>
+{% if msg %}<div class="msg {{ msg[0] }}">{{ msg[1] }}</div>{% endif %}
 <div class="row">{% for n in niches %}<a class="pill" href="/?tab={{tab}}&niche={{n.id}}">{{n.name}}</a>{% endfor %}<a class="pill" href="/?tab={{tab}}">todos</a></div>
 
 {% if not posts %}<p class="meta" style="margin-top:20px">Nada aqui. {% if tab=='fila' %}Clique em "Coletar agora".{% endif %}</p>{% endif %}
@@ -21,34 +22,38 @@
   {% if tab=='fila' %}
   <div class="row">
     <a class="btn go" href="/posts/{{p.id}}/send">Enviar →</a>
-    {% if p.status=='pending' %}<form method="post" action="/posts/{{p.id}}/approve"><button>Aprovar p/ depois</button></form>{% endif %}
-    {% if p.offer.source=='api' %}<form method="post" action="/posts/{{p.id}}/refresh"><button>Revalidar preço</button></form>{% endif %}
-    <form method="post" action="/posts/{{p.id}}/reject"><button class="no">Descartar</button></form>
+    {% if p.status=='pending' %}<form method="post" action="/posts/{{p.id}}/approve"><input type="hidden" name="csrf" value="{{csrf}}"><button>Aprovar p/ depois</button></form>{% endif %}
+    {% if p.offer.source=='api' %}<form method="post" action="/posts/{{p.id}}/refresh"><input type="hidden" name="csrf" value="{{csrf}}"><button>Revalidar preço</button></form>{% endif %}
+    <form method="post" action="/posts/{{p.id}}/reject"><input type="hidden" name="csrf" value="{{csrf}}"><button class="no">Descartar</button></form>
   </div>
-  <form method="post" action="/posts/{{p.id}}/headline" class="row"><input name="headline" value="{{p.headline}}" style="flex:1"><button>Trocar chamada</button></form>
-  <form method="post" action="/posts/{{p.id}}/coupon" class="row"><input name="coupon" placeholder="Cupom (opcional)" value="{{p.offer.coupon or ''}}" style="flex:1"><button>Salvar cupom</button></form>
+  <form method="post" action="/posts/{{p.id}}/headline" class="row"><input type="hidden" name="csrf" value="{{csrf}}"><input name="headline" value="{{p.headline or ''}}" maxlength="60" style="flex:1"><button>Trocar chamada</button></form>
+  <form method="post" action="/posts/{{p.id}}/coupon" class="row"><input type="hidden" name="csrf" value="{{csrf}}"><input name="coupon" placeholder="Cupom (opcional)" maxlength="30" value="{{p.offer.coupon or ''}}" style="flex:1"><button>Salvar cupom</button></form>
   {% elif tab=='enviados' %}<div class="meta">Enviado em {{ p.sent_at|local }} · monitorado por 48h</div>
   {% elif tab=='encerrados' %}<div class="meta bad">Encerrada em {{ p.ended_at|local }} — apague na comunidade se ainda for possível.</div>{% endif %}
 </div>
 {% endfor %}
 </div>
+{% if pages > 1 %}<nav class="pager">
+  {% if page > 1 %}<a class="btn" href="/?tab={{tab}}&niche={{niche}}&page={{page-1}}">← anterior</a>{% endif %}
+  <span class="meta">página {{page}} de {{pages}} · {{total}} posts</span>
+  {% if page < pages %}<a class="btn" href="/?tab={{tab}}&niche={{niche}}&page={{page+1}}">próxima →</a>{% endif %}
+</nav>{% endif %}
 
 <details><summary>➕ Acompanhar um ASIN (watchlist)</summary>
 <p class="meta">O ASIN fica no painel; a cada coleta o preço é verificado pela API. Útil para produtos que você sabe que entram em promoção.</p>
-<form method="post" action="/watch" class="row">
+<form method="post" action="/watch" class="row"><input type="hidden" name="csrf" value="{{csrf}}">
   <select name="niche">{% for n in niches %}<option value="{{n.id}}">{{n.name}}</option>{% endfor %}</select>
-  <input name="asin" placeholder="B0XXXXXXXX" required pattern="[A-Za-z0-9]{10}"><button class="go">Adicionar</button>
+  <input name="asin" placeholder="B0XXXXXXXX" required pattern="[A-Za-z0-9]{10}" maxlength="10"><button class="go">Adicionar</button>
 </form>
-{% for nid, lst in watch.items() %}{% if lst %}<div class="meta">{{nid}}: {% for a in lst %}<form method="post" action="/watch/remove" style="display:inline"><input type="hidden" name="niche" value="{{nid}}"><input type="hidden" name="asin" value="{{a}}"><button title="remover">{{a}} ✕</button></form> {% endfor %}</div>{% endif %}{% endfor %}
+{% for nid, lst in watch.items() %}{% if lst %}<div class="meta">{{nid}}: {% for a in lst %}<form method="post" action="/watch/remove" style="display:inline"><input type="hidden" name="csrf" value="{{csrf}}"><input type="hidden" name="niche" value="{{nid}}"><input type="hidden" name="asin" value="{{a}}"><button title="remover">{{a}} ✕</button></form> {% endfor %}</div>{% endif %}{% endfor %}
 </details>
 
 <details><summary>✍️ Post manual (sem Creators API)</summary>
-<p class="meta">Para a fase inicial, antes das 10 vendas em 30 dias que liberam a API. Com <code>ALLOW_MANUAL_PRICES=false</code> (padrão) o post sai <b>sem preço</b>, porque a política só autoriza preço vindo da API. Link: use o gerado no SiteStripe/Associates (amazon.com.br com ?tag=).</p>
-<form method="post" action="/manual" class="row">
+<p class="meta">Para a fase inicial, antes das 10 vendas em 30 dias que liberam a API. Com <code>ALLOW_MANUAL_PRICES=false</code> (padrão) o post sai <b>sem preço</b>, porque a política só autoriza preço vindo da API. O link é gerado automaticamente com a sua tag (amazon.com.br/dp/ASIN?tag=...), então não existe campo de URL e não há como entrar um link de terceiros.</p>
+<form method="post" action="/manual" class="row"><input type="hidden" name="csrf" value="{{csrf}}">
   <select name="niche">{% for n in niches %}<option value="{{n.id}}">{{n.name}}</option>{% endfor %}</select>
-  <input name="asin" placeholder="ASIN" required><input name="title" placeholder="Título do produto (como na Amazon)" required style="flex:1;min-width:220px">
-  <input name="url" placeholder="https://www.amazon.com.br/dp/...?tag=..." required style="flex:1;min-width:220px">
-  <input name="basis" placeholder="De (ex: 599,00)" size="10"><input name="price" placeholder="Por (ex: 316,00)" size="10"><input name="coupon" placeholder="Cupom" size="10">
+  <input name="asin" placeholder="ASIN" required pattern="[A-Za-z0-9]{10}" maxlength="10"><input name="title" placeholder="Título do produto (como na Amazon)" required maxlength="300" style="flex:1;min-width:220px">
+  <input name="basis" placeholder="De (ex: 599,00)" size="10" maxlength="20"><input name="price" placeholder="Por (ex: 316,00)" size="10" maxlength="20"><input name="coupon" placeholder="Cupom" size="10" maxlength="30">
   <button class="go">Criar</button>
 </form>
 </details>

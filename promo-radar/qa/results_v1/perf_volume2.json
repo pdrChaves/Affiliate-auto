@@ -1,0 +1,17 @@
+[
+ {
+  "rota": "GET /?tab=enviados",
+  "concorrencia": 10,
+  "req": 273,
+  "rps": 27.0,
+  "p50_ms": 343.1,
+  "p95_ms": 645.0,
+  "p99_ms": 836.6,
+  "max_ms": 940.5,
+  "erros": 0,
+  "codes": {
+   "200": 273
+  },
+  "cenario": "enviados 200 cards, banco 100k"
+ }
+]

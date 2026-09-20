@@ -1,12 +1,12 @@
 {
  "posts": 10000,
- "insercao_s": 0.4,
- "tamanho_db_MB": 10.7,
- "list_posts_fila_ms": 4.24,
- "list_posts_enviados_ms": 6.28,
- "last_post_for_ms": 0.02,
- "get_post_ms": 0.01,
- "purge_s": 4.22,
+ "insercao_s": 0.44,
+ "tamanho_db_MB": 11.7,
+ "list_posts_fila_ms": 2.3,
+ "list_posts_enviados_ms": 2.67,
+ "last_post_for_ms": 0.03,
+ "get_post_ms": 0.02,
+ "purge_s": 0.07,
  "purge_linhas": 7705,
- "tamanho_db_pos_purge_MB": 10.7
+ "tamanho_db_pos_purge_MB": 11.7
 }

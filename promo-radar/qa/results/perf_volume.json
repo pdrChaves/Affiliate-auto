@@ -1,0 +1,32 @@
+[
+ {
+  "rota": "GET /",
+  "concorrencia": 10,
+  "req": 2144,
+  "rps": 267.8,
+  "p50_ms": 34.9,
+  "p95_ms": 65.3,
+  "p99_ms": 84.7,
+  "max_ms": 132.2,
+  "erros": 0,
+  "codes": {
+   "200": 2144
+  },
+  "cenario": "fila, banco 100k (paginada 30)"
+ },
+ {
+  "rota": "GET /?tab=enviados",
+  "concorrencia": 10,
+  "req": 1593,
+  "rps": 199.5,
+  "p50_ms": 46.7,
+  "p95_ms": 89.2,
+  "p99_ms": 112.0,
+  "max_ms": 139.4,
+  "erros": 0,
+  "codes": {
+   "200": 1593
+  },
+  "cenario": "enviados, banco 100k (paginada 30)"
+ }
+]

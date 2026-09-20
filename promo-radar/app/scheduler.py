@@ -16,9 +16,11 @@ def start_scheduler(svc: PromoService) -> BackgroundScheduler:
         if n.enabled:
             sch.add_job(svc.collect, "interval", minutes=n.collect_every_minutes, args=[n.id],
                         id=f"collect:{n.id}")
-    sch.add_job(svc.monitor_sent, "interval", minutes=60, id="monitor_sent")
+    if svc.s.monitor_sent_enabled:
+        sch.add_job(svc.monitor_sent, "interval", minutes=60, id="monitor_sent")
     sch.add_job(svc.expire_stale_queue, "interval", minutes=30, id="expire_queue")
     sch.add_job(svc.purge_old_content, "interval", minutes=60, id="purge_content")
+    sch.add_job(svc.housekeeping, "cron", hour=4, minute=10, id="housekeeping")
     sch.start()
     log.info("Agendador iniciado: %s", [j.id for j in sch.get_jobs()])
     return sch

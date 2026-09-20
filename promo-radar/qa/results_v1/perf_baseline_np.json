@@ -1,0 +1,17 @@
+[
+ {
+  "rota": "GET /",
+  "concorrencia": 10,
+  "req": 340,
+  "rps": 41.9,
+  "p50_ms": 223.2,
+  "p95_ms": 400.6,
+  "p99_ms": 638.5,
+  "max_ms": 744.7,
+  "erros": 0,
+  "codes": {
+   "200": 340
+  },
+  "cenario": "fila, banco 100k (baseline p/ contenção)"
+ }
+]

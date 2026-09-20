@@ -1,0 +1,2 @@
+health_ok: {"ok":true} 200
+health_banco_removido: {"ok":false} 503

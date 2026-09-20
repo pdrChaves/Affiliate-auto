@@ -2,16 +2,16 @@
  {
   "rota": "GET /",
   "concorrencia": 10,
-  "req": 52,
-  "rps": 2.0,
-  "p50_ms": 3796.5,
-  "p95_ms": 9309.8,
-  "p99_ms": 10761.7,
-  "max_ms": 10400.9,
+  "req": 2693,
+  "rps": 269.7,
+  "p50_ms": 34.9,
+  "p95_ms": 64.6,
+  "p99_ms": 78.5,
+  "max_ms": 115.4,
   "erros": 0,
   "codes": {
-   "200": 52
+   "200": 2693
   },
-  "cenario": "fila durante expurgo"
+  "cenario": "fila durante expurgo (outro processo)"
  }
 ]

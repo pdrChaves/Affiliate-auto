@@ -1,12 +1,12 @@
 {
  "posts": 100000,
- "insercao_s": 4.29,
- "tamanho_db_MB": 107.3,
- "list_posts_fila_ms": 14.33,
- "list_posts_enviados_ms": 29.49,
+ "insercao_s": 4.78,
+ "tamanho_db_MB": 117.1,
+ "list_posts_fila_ms": 2.36,
+ "list_posts_enviados_ms": 2.13,
  "last_post_for_ms": 0.02,
- "get_post_ms": 0.02,
- "purge_s": 47.1,
+ "get_post_ms": 0.01,
+ "purge_s": 1.01,
  "purge_linhas": 88705,
- "tamanho_db_pos_purge_MB": 107.3
+ "tamanho_db_pos_purge_MB": 117.2
 }

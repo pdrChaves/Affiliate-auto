@@ -1,0 +1,14 @@
+75	S101	[ ] assert
+ 3	C901	[ ] complex-structure
+ 3	S608	[ ] hardcoded-sql-expression
+ 2	E501	[ ] line-too-long
+ 2	F401	[*] unused-import
+ 2	S106	[ ] hardcoded-password-func-arg
+ 1	B008	[ ] function-call-in-default-argument
+ 1	E741	[ ] ambiguous-variable-name
+ 1	S104	[ ] hardcoded-bind-all-interfaces
+ 1	S105	[ ] hardcoded-password-string
+ 1	S311	[ ] suspicious-non-cryptographic-random-usage
+ 1	S324	[ ] hashlib-insecure-hash-function
+Found 93 errors.
+[*] 2 fixable with the `--fix` option.

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block body %}
+<form method="post" action="/login" class="card login">
+  <b>Entrar no painel</b>
+  {% if erro == 'invalido' %}<div class="msg bad">Usuário ou senha incorretos.</div>{% endif %}
+  {% if erro == 'bloqueado' %}<div class="msg bad">Muitas tentativas. Tente de novo em {{ ((wait or 60) / 60)|round(0, 'ceil')|int }} min.</div>{% endif %}
+  <input name="username" placeholder="Usuário" autocomplete="username" required maxlength="100">
+  <input name="password" type="password" placeholder="Senha" autocomplete="current-password" required maxlength="200">
+  <button class="go">Entrar</button>
+</form>
+{% endblock %}

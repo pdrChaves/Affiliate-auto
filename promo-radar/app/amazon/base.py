@@ -7,7 +7,7 @@ from ..models import Offer
 
 
 class CatalogClient(Protocol):
-    def get_items(self, asins: list[str]) -> list[Offer]:
+    def get_items(self, asins: list[str], fast: bool = False) -> list[Offer]:
         """Preço/estado atual de até N ASINs (a implementação faz o lote de 10)."""
 
     def search(self, keywords: str | None, search_index: str = "All", browse_node_id: str | None = None,

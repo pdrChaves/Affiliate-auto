@@ -7,7 +7,7 @@
    [
     "GET",
     "/",
-    401
+    303
    ],
    [
     "POST",
@@ -57,7 +57,7 @@
    [
     "GET",
     "/posts/1/send",
-    401
+    303
    ],
    [
     "POST",
@@ -71,55 +71,56 @@
   "id": "SEC-02",
   "teste": "Senha errada é recusada",
   "passou": true,
-  "detalhe": 401,
+  "detalhe": "401",
   "severidade_se_falha": "critica"
  },
  {
   "id": "SEC-03",
-  "teste": "Senha padrão de exemplo NÃO é aceita",
-  "passou": false,
-  "detalhe": "o servidor sobe e aceita 'admin/troque-esta-senha' sem aviso",
+  "teste": "Senha padrão/fraca impede o painel de subir",
+  "passou": true,
+  "detalhe": "Painel não iniciado: PANEL_PASSWORD é a senha de exemplo ou é igual ao usuário. Defina no .env (veja .env.example).",
   "severidade_se_falha": "alta"
  },
  {
   "id": "SEC-04",
-  "teste": "Força bruta é limitada (lockout/rate limit)",
-  "passou": false,
-  "detalhe": "300 tentativas em 0.3s (974/s), nenhuma bloqueada",
+  "teste": "Força bruta é limitada",
+  "passou": true,
+  "detalhe": "300 tentativas em 0.5s: 5 avaliadas, 295 bloqueadas (429) a partir da 6ª; senha correta durante o bloqueio → 429",
   "severidade_se_falha": "alta"
  },
  {
   "id": "SEC-05",
   "teste": "Documentação da API não fica pública",
-  "passou": false,
+  "passou": true,
   "detalhe": {
-   "/docs": 200,
-   "/redoc": 200,
-   "/openapi.json": 200,
-   "/health": 200
+   "/docs": 404,
+   "/redoc": 404,
+   "/openapi.json": 404
   },
   "severidade_se_falha": "media"
  },
  {
   "id": "SEC-06",
   "teste": "Cabeçalhos de segurança presentes",
-  "passou": false,
+  "passou": true,
   "detalhe": {
-   "ausentes": [
-    "content-security-policy",
-    "x-frame-options",
-    "x-content-type-options",
-    "referrer-policy",
-    "strict-transport-security"
-   ]
+   "ausentes": [],
+   "csp": "default-src 'self'; img-src 'self' data: https://*.media-amazon.com https://*.ss…",
+   "hsts": "ligado só com COOKIE_SECURE=true (HTTPS)"
   },
   "severidade_se_falha": "media"
  },
  {
   "id": "SEC-07",
-  "teste": "POST de outra origem (CSRF) é recusado",
-  "passou": false,
-  "detalhe": "POST com Origin=https://site-malicioso.com → 303 (aceito)",
+  "teste": "CSRF: POST sem token, com token forjado ou de outra origem é recusado",
+  "passou": true,
+  "detalhe": {
+   "sem_token": 403,
+   "token_forjado": 403,
+   "origin_malicioso": 403,
+   "legitimo": 303,
+   "cookie": "HttpOnly; SameSite=Strict"
+  },
   "severidade_se_falha": "alta"
  },
  {
@@ -127,7 +128,7 @@
   "teste": "XSS: HTML injetado é escapado (painel e tela de envio)",
   "passou": true,
   "detalhe": {
-   "payloads_refletidos_crus": []
+   "refletidos_crus": []
   },
   "severidade_se_falha": "alta"
  },
@@ -135,19 +136,15 @@
   "id": "SEC-09",
   "teste": "XSS via campo de chamada (headline)",
   "passou": true,
-  "detalhe": "atributo value escapado",
+  "detalhe": "escapado",
   "severidade_se_falha": "alta"
  },
  {
   "id": "SEC-10",
-  "teste": "Link manual só aceita domínio da Amazon",
-  "passou": false,
-  "detalhe": {
-   "https://evil.example/phish?x=amazon.com.br&tag=t-20": 303,
-   "javascript:alert(1)//amazon.com.br?tag=1": 303,
-   "https://amazon.com.br.evil.example/?tag=x": 303
-  },
-  "severidade_se_falha": "media"
+  "teste": "Post manual não aceita link de terceiros",
+  "passou": true,
+  "detalhe": "campo de URL removido: o link é sempre amazon.com.br/dp/ASIN?tag=SUA_TAG; URLs enviadas foram ignoradas",
+  "severidade_se_falha": "alta"
  },
  {
   "id": "SEC-11",
@@ -165,23 +162,26 @@
  },
  {
   "id": "SEC-12",
-  "teste": "Entradas inválidas retornam 4xx (não 500)",
-  "passou": false,
+  "teste": "Entradas inválidas retornam 4xx (não 500) e sem stack trace",
+  "passou": true,
   "detalhe": {
-   "post_inexistente_refresh": 500,
-   "post_inexistente_headline": 500,
-   "post_inexistente_approve": 303,
-   "nicho_inexistente_collect": 500,
-   "nicho_inexistente_manual": 500,
-   "preco_invalido_manual": 500
+   "post_inexistente_refresh": 404,
+   "post_inexistente_headline": 404,
+   "post_inexistente_approve": 404,
+   "nicho_inexistente_collect": 400,
+   "nicho_inexistente_manual": 400,
+   "preco_invalido_manual": 400
   },
   "severidade_se_falha": "baixa"
  },
  {
   "id": "SEC-13",
   "teste": "Limite de tamanho de entrada",
-  "passou": false,
-  "detalhe": "título de 10 MB → 303 em 0.43s (gravado no banco)",
+  "passou": true,
+  "detalhe": {
+   "corpo_10MB": 413,
+   "titulo_400_chars": 422
+  },
   "severidade_se_falha": "media"
  },
  {
@@ -189,8 +189,8 @@
   "teste": "Injeção de cabeçalho via redirect",
   "passou": true,
   "detalhe": {
-   "status": 303,
-   "location": "/?tab=fila%0D%0ASet-Cookie:%20pwn=1"
+   "status": 422,
+   "location": null
   },
   "severidade_se_falha": "media"
  },
@@ -198,17 +198,30 @@
   "id": "SEC-15",
   "teste": "Open redirect",
   "passou": true,
-  "detalhe": "/?tab=//evil.example",
+  "detalhe": "/?tab=fila",
   "severidade_se_falha": "media"
  },
  {
   "id": "SEC-16",
   "teste": "/health não expõe detalhes internos",
-  "passou": false,
+  "passou": true,
   "detalhe": {
-   "ok": true,
-   "mode": "mock"
+   "ok": true
   },
   "severidade_se_falha": "baixa"
+ },
+ {
+  "id": "SEC-17",
+  "teste": "Logout invalida a sessão no servidor",
+  "passou": true,
+  "detalhe": "GET / após logout → 303 (login)",
+  "severidade_se_falha": "media"
+ },
+ {
+  "id": "SEC-18",
+  "teste": "Cookie de sessão forjado é recusado",
+  "passou": true,
+  "detalhe": 303,
+  "severidade_se_falha": "alta"
  }
 ]

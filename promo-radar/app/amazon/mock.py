@@ -49,7 +49,7 @@ class MockClient:
     def __init__(self, settings: Settings, jitter: float = 0.0, seed: int | None = None):
         self.s = settings
         self.jitter = jitter              # variação aleatória de preço (simula mercado)
-        self.rng = random.Random(seed)
+        self.rng = random.Random(seed)  # nosec B311 (só simula variação de preço)
         self.overrides: dict[str, float] = {}   # testes podem forçar preço
 
     def _offers(self, rows):
@@ -62,7 +62,7 @@ class MockClient:
                                   self.s.amazon_partner_tag))
         return out
 
-    def get_items(self, asins):
+    def get_items(self, asins, fast=False):
         return self._offers([r for r in CATALOG if r[0] in asins])
 
     def search(self, keywords=None, search_index="All", browse_node_id=None, min_saving_pct=None,

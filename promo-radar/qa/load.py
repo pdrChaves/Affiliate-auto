@@ -1,11 +1,22 @@
 """Gerador de carga assíncrono: RPS e latência p50/p95/p99."""
 import asyncio, json, sys, time, statistics, httpx
-A = ("admin", "troque-esta-senha")
+from common import PASSWORD
 
-async def run(base, path, conc, secs, method="GET", data=None):
+
+def session_cookies(base):
+    """Faz login uma vez e devolve o cookie de sessão + token CSRF."""
+    import re
+    c = httpx.Client(base_url=base)
+    c.post("/login", data={"username": "admin", "password": PASSWORD})
+    tok = re.search(r'name="csrf" value="([^"]+)"', c.get("/").text)
+    return dict(c.cookies), (tok.group(1) if tok else "")
+
+async def run(base, path, conc, secs, method="GET", data=None, cookies=None, tok=""):
+    if data is not None:
+        data = {**data, "csrf": tok}
     lat, errs, codes = [], 0, {}
     end = time.perf_counter() + secs
-    async with httpx.AsyncClient(base_url=base, auth=A, timeout=30,
+    async with httpx.AsyncClient(base_url=base, cookies=cookies, timeout=30,
                                  limits=httpx.Limits(max_connections=conc)) as c:
         async def worker():
             nonlocal errs
@@ -30,8 +41,9 @@ if __name__ == "__main__":
     base, out = sys.argv[1], sys.argv[2]
     scen = json.loads(sys.argv[3])
     res = []
+    cookies, tok = session_cookies(base)
     for s in scen:
-        r = asyncio.run(run(base, s["path"], s["c"], s.get("secs", 8), s.get("m", "GET"), s.get("data")))
+        r = asyncio.run(run(base, s["path"], s["c"], s.get("secs", 8), s.get("m", "GET"), s.get("data"), cookies, tok))
         r["cenario"] = s.get("nome", "")
         print(json.dumps(r, ensure_ascii=False)); res.append(r)
     json.dump(res, open(out, "w"), ensure_ascii=False, indent=1)

@@ -1,0 +1,79 @@
+[
+ {
+  "id": "DISP-01",
+  "teste": "API da Amazon com erro 500: coleta falha de forma controlada",
+  "passou": true,
+  "detalhe": "erro registrado, sem derrubar o processo; levou 15.0s (4 tentativas com backoff)",
+  "severidade_se_falha": "alta"
+ },
+ {
+  "id": "DISP-02",
+  "teste": "Throttling (429) permanente",
+  "passou": true,
+  "detalhe": "desiste após 15.0s por busca; próxima coleta tenta de novo",
+  "severidade_se_falha": "media"
+ },
+ {
+  "id": "DISP-03",
+  "teste": "Timeout da API na coleta",
+  "passou": true,
+  "detalhe": "capturado em 0.00s; timeout não tem retry (só 429/5xx têm)",
+  "severidade_se_falha": "media"
+ },
+ {
+  "id": "DISP-04",
+  "teste": "Servidor de token (OAuth) fora do ar",
+  "passou": true,
+  "detalhe": "Falha ao obter token (503): ",
+  "severidade_se_falha": "media"
+ },
+ {
+  "id": "DISP-05",
+  "teste": "Botão Enviar com a API fora do ar",
+  "passou": false,
+  "detalhe": "HTTP 500 após 15.0s: a tela de envio quebra em vez de avisar",
+  "severidade_se_falha": "alta"
+ },
+ {
+  "id": "DISP-06",
+  "teste": "Botão Revalidar com a API fora do ar",
+  "passou": false,
+  "detalhe": "HTTP 500",
+  "severidade_se_falha": "media"
+ },
+ {
+  "id": "DISP-07",
+  "teste": "Monitor pós-envio com API fora",
+  "passou": false,
+  "detalhe": "exceção não tratada (CreatorsAPIError); o APScheduler registra e tenta de novo na próxima hora",
+  "severidade_se_falha": "baixa"
+ },
+ {
+  "id": "DISP-08",
+  "teste": "Agendador continua após job com erro",
+  "passou": true,
+  "detalhe": "job com erro executou 3x em 3.5s",
+  "severidade_se_falha": "alta"
+ },
+ {
+  "id": "DISP-09",
+  "teste": "Telegram fora do ar não afeta o sistema",
+  "passou": true,
+  "detalhe": "exceção capturada e registrada em log",
+  "severidade_se_falha": "baixa"
+ },
+ {
+  "id": "DISP-10",
+  "teste": "IA fora do ar: usa chamada de reserva",
+  "passou": true,
+  "detalhe": "MAIS UM PRA COLEÇÃO",
+  "severidade_se_falha": "baixa"
+ },
+ {
+  "id": "DISP-11",
+  "teste": "Coletas simultâneas não duplicam posts",
+  "passou": false,
+  "detalhe": "5 coletas paralelas → 15 posts, 12 duplicados",
+  "severidade_se_falha": "media"
+ }
+]

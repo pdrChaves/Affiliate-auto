@@ -2,18 +2,21 @@
 
 Coleta promoções da Amazon (Creators API), valida o desconto, monta o post no formato das comunidades de WhatsApp e deixa pronto para enviar com 1 clique.
 
-**Documentação completa:** [`RELATORIO.md`](RELATORIO.md)
+- Documentação completa: [`RELATORIO.md`](RELATORIO.md)
+- Fluxograma (o que é automático e o que é manual): [`FLUXOGRAMA.md`](FLUXOGRAMA.md)
+- Avaliação de qualidade/segurança: [`RELATORIO_QA_v2.md`](RELATORIO_QA_v2.md)
 
 ## Rodar em 1 minuto (modo demonstração, sem credenciais)
 
 ```bash
 python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
-pip install -r requirements-dev.txt
+pip install -r requirements.lock -r requirements-dev.txt
 cp .env.example .env                                  # CATALOG_MODE=mock
-python -m app.cli serve                               # http://localhost:8000  (admin / troque-esta-senha)
+# edite o .env e defina PANEL_PASSWORD (mínimo 12 caracteres). Sem isso o painel não sobe.
+python -m app.cli serve                               # http://127.0.0.1:8000
 ```
 
-No painel, clique em **Coletar agora**.
+Entre com `PANEL_USER` / `PANEL_PASSWORD` e clique em **Coletar agora**.
 
 ## Com a Amazon de verdade
 
@@ -23,11 +26,15 @@ As credenciais saem do Associates Central → Ferramentas → Creators API. Para
 ## Docker
 
 ```bash
-cp .env.example .env && docker compose up -d --build
+cp .env.example .env    # defina PANEL_PASSWORD
+docker compose up -d --build
 ```
+
+O painel fica em `http://127.0.0.1:8000`, acessível só desta máquina. Para abrir em outro aparelho, use VPN (ex.: Tailscale) ou um proxy com HTTPS e `COOKIE_SECURE=true`.
 
 ## Testes
 
 ```bash
-pytest -q
+pytest -q              # 66 testes
+ruff check app tests && mypy app
 ```

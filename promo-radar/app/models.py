@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import datetime, UTC
+from enum import StrEnum
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 @dataclass
@@ -40,7 +40,7 @@ class Offer:
         return None
 
 
-class PostStatus(str, Enum):
+class PostStatus(StrEnum):
     PENDING = "pending"        # aguardando revisão
     APPROVED = "approved"      # aprovado, pronto p/ enviar
     SENT = "sent"              # você confirmou o envio

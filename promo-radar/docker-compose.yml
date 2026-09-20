@@ -2,9 +2,14 @@ services:
   promo-radar:
     build: .
     env_file: .env
+    environment:
+      HOST: 0.0.0.0          # dentro do container; a porta abaixo só é publicada para esta máquina
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./data:/app/data
-      - ./config:/app/config   # editar niches.yaml sem rebuild (reinicie o container)
+      - ./config:/app/config:ro
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
     restart: unless-stopped

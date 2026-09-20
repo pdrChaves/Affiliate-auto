@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, UTC
 
 from app.models import PostStatus, utcnow
 
@@ -17,15 +17,16 @@ def test_headlines_not_repeated_in_run(svc):
     assert len(set(heads)) == len(heads)
 
 
-def test_send_flow_revalidates_stale_price(svc):
+def test_send_always_revalidates_by_default(svc):
+    """MAX_PRICE_AGE_MINUTES=0: o preço é conferido no clique, para o post sair com a promoção ativa."""
     svc.collect("lego")
     p = svc.db.list_posts(["pending"], niche_id="lego")[0]
-    svc.db.update_post(p["id"], price_checked_at=utcnow() - timedelta(hours=3))
+    assert svc.is_stale(p)                                           # recém-coletado já é revalidado
     svc.client.overrides[p["asin"]] = p["price_cents"] / 100 - 5     # caiu mais 5 reais
     r = svc.prepare_send(p["id"])
     assert r["ok"] and r["share_url"].startswith("https://wa.me/?text=")
     assert r["post"]["price_cents"] == p["price_cents"] - 500         # texto reflete preço novo
-    assert not svc.is_stale(r["post"])
+    assert svc.price_age(r["post"]) < timedelta(seconds=10)           # preço conferido agora
 
 
 def test_send_blocked_when_deal_died(svc):
@@ -37,7 +38,17 @@ def test_send_blocked_when_deal_died(svc):
     assert not r["ok"] and r["post"]["status"] == PostStatus.EXPIRED.value
 
 
-def test_monitor_flags_ended_promo(svc):
+def test_monitor_is_off_by_default(svc):
+    svc.collect("lego")
+    p = svc.db.list_posts(["pending"], niche_id="lego")[0]
+    svc.mark_sent(p["id"])
+    svc.client.overrides[p["asin"]] = p["price_cents"] / 100 + 20
+    assert svc.monitor_sent() == []
+    assert svc.db.get_post(p["id"])["status"] == PostStatus.SENT.value
+
+
+def test_monitor_flags_ended_promo_when_enabled(svc):
+    svc.s.monitor_sent_enabled = True
     svc.collect("lego")
     p = svc.db.list_posts(["pending"], niche_id="lego")[0]
     svc.mark_sent(p["id"])
@@ -60,21 +71,19 @@ def test_expire_and_purge_24h(svc):
 
 
 def test_manual_hides_prices_by_default(svc):
-    pid = svc.add_manual("lego", "B0MANUAL01", "LEGO X", "https://www.amazon.com.br/dp/B0MANUAL01?tag=t-20",
-                         199.9, 120.0, "CUPOM10")
+    pid = svc.add_manual("lego", "B0MANUAL01", "LEGO X", 199.9, 120.0, "CUPOM10")
     txt = svc.db.get_post(pid)["text"]
     assert "R$" not in txt and "CUPOM10" in txt
 
 
 def test_manual_prices_when_allowed(svc):
     svc.s.allow_manual_prices = True
-    pid = svc.add_manual("lego", "B0MANUAL01", "LEGO X", "https://www.amazon.com.br/dp/B0MANUAL01?tag=t-20",
-                         199.9, 120.0)
+    pid = svc.add_manual("lego", "B0MANUAL01", "LEGO X", 199.9, 120.0)
     assert "~De R$ 199,90~" in svc.db.get_post(pid)["text"]
 
 
 def test_window(svc):
-    from datetime import datetime, timezone
+    from datetime import datetime
     n = svc.niche("radar-homem")   # 08:00–22:30 BRT
-    assert svc.in_window(n, datetime(2026, 9, 19, 15, 0, tzinfo=timezone.utc))      # 12:00 BRT
-    assert not svc.in_window(n, datetime(2026, 9, 19, 7, 0, tzinfo=timezone.utc))   # 04:00 BRT
+    assert svc.in_window(n, datetime(2026, 9, 19, 15, 0, tzinfo=UTC))      # 12:00 BRT
+    assert not svc.in_window(n, datetime(2026, 9, 19, 7, 0, tzinfo=UTC))   # 04:00 BRT

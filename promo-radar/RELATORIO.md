@@ -1,13 +1,13 @@
-# Promo Radar: relatório técnico (v1)
+# Promo Radar: relatório técnico
 
 Automação de divulgação de promoções da **Amazon** em **comunidades de WhatsApp**
-Data: 19/09/2026 · Versão 1.0
+Data: 19/09/2026 · Versão 1.1 (correções de segurança e resiliência: ver `RELATORIO_QA_v2.md`)
 
 ---
 
 ## 1. Resumo
 
-**O que o sistema faz sozinho:** busca ofertas na Amazon pela API oficial, descarta promoções fracas ou suspeitas e escreve a chamada do post. Também monta a mensagem com **De x Por**, o link de afiliado, o aviso de publicidade e o carimbo de horário do preço. Depois disso, põe tudo numa fila, confere o preço de novo antes do envio e continua monitorando a oferta depois de enviada, para avisar quando ela acabar.
+**O que o sistema faz sozinho:** busca ofertas na Amazon pela API oficial, descarta promoções fracas ou suspeitas e escreve a chamada do post. Também monta a mensagem com **De x Por**, o link de afiliado, o aviso de publicidade e o carimbo de horário do preço. Depois disso, põe tudo numa fila e, no clique de Enviar, confere o preço na Amazon de novo, para o post sair só enquanto a promoção está ativa.
 
 **O que ele não faz:** apertar "enviar" no WhatsApp. O envio é **1 clique seu** no painel: o botão abre o WhatsApp com o texto pronto, você escolhe a comunidade e envia. Isso foi decidido de propósito, pelos motivos abaixo.
 
@@ -27,11 +27,11 @@ A camada de envio fica isolada em `app/senders/`. Se um canal oficial viável ap
 | Regra (resumo fiel do texto) | Como o sistema atende | Onde |
 |---|---|---|
 | Preço e disponibilidade **só podem ser exibidos** se vierem da API (Creators API) ou de link fornecido pela Amazon | Por padrão, o preço vem só do Creators API. No post manual (sem API), o preço **fica oculto** enquanto `ALLOW_MANUAL_PRICES=false` | `service.show_prices`, `render.py` |
-| Com atualização menos frequente que 1×/hora, exibir **carimbo de data/hora** junto ao preço + aviso de que pode mudar | Todo post leva "🕒 Preço verificado em DD/MM às HH:MM. Preço e disponibilidade podem mudar." Ao clicar **Enviar**, se o preço tiver mais de 60 min (`MAX_PRICE_AGE_MINUTES`), ele é **revalidado** e o texto refeito | `render.py`, `service.prepare_send` |
+| Com atualização menos frequente que 1×/hora, exibir **carimbo de data/hora** junto ao preço + aviso de que pode mudar | Todo post leva "🕒 Preço verificado em DD/MM às HH:MM. Preço e disponibilidade podem mudar." Ao clicar **Enviar**, o preço é **revalidado na hora** (`MAX_PRICE_AGE_MINUTES=0`, padrão) e o texto refeito, então o post sai com a promoção ativa | `render.py`, `service.prepare_send` |
 | Conteúdo de produto pode ficar em cache por **no máximo 24h**. Imagens nunca podem ser armazenadas (só o link, por 24h). **Só o ASIN** pode ser guardado sem limite | Imagem nunca é baixada: o card do WhatsApp busca a imagem direto da Amazon. Fila com mais de 24h expira, e um expurgo de hora em hora apaga título/preço/texto de posts antigos, mantendo só ASIN, nicho, status e datas. **Por isso não existe histórico próprio de preços** (ver 7.2) | `service.expire_stale_queue`, `service.purge_old_content`, `db.purge_product_content` |
-| Proibido disfarçar/obscurecer a URL. Encurtador que esconda que o destino é a Amazon também é proibido | Link canônico e visível: `https://www.amazon.com.br/dp/ASIN?tag=SEUTAG-20`. O painel recusa link manual que não seja amazon.com.br com `tag=` | `amazon/base.affiliate_link`, `web/server.manual` |
+| Proibido disfarçar/obscurecer a URL. Encurtador que esconda que o destino é a Amazon também é proibido | Link canônico e visível: `https://www.amazon.com.br/dp/ASIN?tag=SEUTAG-20`. No post manual não existe campo de URL: o link é sempre gerado pelo sistema a partir do ASIN e da sua tag | `amazon/base.affiliate_link`, `web/server.manual` |
 | Não incluir, excluir ou modificar o Conteúdo do Programa (exceto truncar texto ou redimensionar imagem) | O título do produto **só é truncado** na palavra, com "…". A chamada criativa ("PRA TREINAR NO CONFORTO") é conteúdo seu e fica **separada** do título | `render.truncate_title`, `copywriter.py` |
-| Remover o link quando a promoção acabar | O monitor revisa por 48h cada post enviado. Se o preço subir ou o produto sair de estoque, o post vai para **Encerrados** e você recebe um alerta para apagar a mensagem ("apagar para todos" só funciona por cerca de 2 dias) | `service.monitor_sent` |
+| Remover o link quando a promoção acabar | **Desligado por padrão** (`MONITOR_SENT_ENABLED=false`), por decisão sua: o objetivo é publicar com a promoção ativa, não acompanhar o fim dela. O que sobra do lado do cumprimento: o preço é conferido no clique de Enviar e o post carrega o carimbo de horário com o aviso de que pode mudar. Ligando a opção, o sistema volta a revisar cada envio por 48h e a avisar para você apagar a mensagem enquanto o WhatsApp permite (~2 dias) | `service.monitor_sent` |
 | Links em mensagens diretas são permitidos se a comunicação for **solicitada** | Comunidade em que o membro entra por vontade própria = solicitada. **Não use o sistema para mandar no privado de quem não pediu** | Operacional |
 | Proibido gerar cliques ou sessões artificiais por software | O sistema não clica em links nem abre páginas da Amazon. Só consulta a API | Arquitetura |
 | Marcas da Amazon só para indicar disponibilidade no site. Nada de logo em rede social | O post não usa logo, só o texto "Amazon" para dizer onde está o produto. **Não use o logo da Amazon na foto/nome da comunidade** | Operacional |
@@ -62,12 +62,12 @@ A camada de envio fica isolada em `app/senders/`. Se um canal oficial viável ap
  (OAuth2)        │                                   │           │                        │         │
                  │                                   │     (IA opcional:                  │         │
                  │                                   │      só a chamada)                 ▼         │
-                 │  monitor_sent (1h) ◄─────────────────────────────────────────── Painel web       │
+                 │  (monitor pós-envio: opcional) ◄──────────────────────────────── Painel web       │
                  │  expire_stale_queue (30min)                                    (FastAPI)        │
-                 │  purge_old_content (1h)                                           │              │
+                 │  purge_old_content (1h) · housekeeping (diário)                    │              │
                  │           │                                                       │ "Enviar"     │
                  │           ▼                                                       ▼              │
-                 │  Telegram (opcional: alerta p/ VOCÊ)                 revalida preço se > 60 min  │
+                 │  Telegram (opcional: alerta p/ VOCÊ)                 revalida o preço no clique  │
                  └──────────────────────────────────────────────────────────────────┬───────────────┘
                                                                                     │ wa.me/?text=...
                                                                                     ▼
@@ -128,11 +128,14 @@ promo-radar/
 │   │   ├── base.py          # contrato Notifier (ponto de troca do canal)
 │   │   └── telegram.py      # alertas para o operador via bot oficial
 │   └── web/
-│       ├── server.py        # rotas do painel (Basic Auth)
+│       ├── server.py        # rotas do painel (login por sessão, CSRF, paginação)
+│       ├── security.py      # sessão, CSRF, bloqueio de força bruta, cabeçalhos HTTP
+│       ├── static/          # CSS e JS (sem script inline, por causa da CSP)
 │       └── templates/       # base, index (fila), send (envio)
 ├── config/niches.yaml       # um bloco por comunidade
-├── tests/                   # 29 testes (pytest)
-├── Dockerfile, docker-compose.yml, .env.example, README.md
+├── tests/                   # 62 testes (pytest)
+├── qa/                      # bateria de avaliação (segurança, carga, volume, falhas)
+├── Dockerfile, docker-compose.yml, requirements.lock, pyproject.toml, .env.example, README.md
 ```
 
 ---
@@ -210,8 +213,8 @@ https://www.amazon.com.br/dp/B0XXXXXXX?tag=seutag-20
 
 1. O agendador coleta sozinho (`collect_every_minutes` por nicho). Se o Telegram estiver configurado, chega um aviso quando entra post novo, só dentro de `posting_window`.
 2. No painel (aba **Fila**), revise: avisos 📝 em amarelo pedem atenção. Dá para **trocar a chamada**, **adicionar cupom**, **revalidar preço** ou **descartar**.
-3. **Enviar →** revalida o preço (se tiver mais de 60 min) → **Abrir no WhatsApp** → escolha a comunidade → espere o card → enviar → volte e clique em **Já enviei**.
-4. Se a oferta acabar em até 48h, o post aparece em **Encerrados** e chega um alerta. Se ainda der tempo, apague a mensagem na comunidade.
+3. **Enviar →** o preço é conferido na Amazon naquele instante. Se a promoção caiu, o envio é bloqueado e o post expira; se continua de pé (ou se a API estiver fora, com aviso), você segue para **Abrir no WhatsApp** → escolha a comunidade → espere o card → enviar → volte e clique em **Já enviei**.
+4. O acompanhamento pós-envio vem desligado. Para tê-lo de volta (aviso quando a promoção acabar, para apagar a mensagem em até ~2 dias), ligue `MONITOR_SENT_ENABLED=true`.
 5. **Watchlist:** cole o ASIN de produtos que você quer acompanhar. Eles são checados a cada coleta e só viram post quando atingem os critérios do nicho.
 
 Rotinas automáticas:
@@ -219,9 +222,10 @@ Rotinas automáticas:
 | Rotina | Frequência | Função |
 |---|---|---|
 | `collect:<nicho>` | por nicho (60/90 min no exemplo) | busca + watchlist → fila |
-| `monitor_sent` | 1h | detecta fim da promoção em posts enviados (48h) |
+| `monitor_sent` | 1h | **desligado por padrão**; com `MONITOR_SENT_ENABLED=true`, detecta o fim da promoção em posts enviados (48h) |
 | `expire_stale_queue` | 30 min | expira itens com mais de 24h na fila |
 | `purge_content` | 1h | expurga conteúdo de produto antigo (regra das 24h) |
+| `housekeeping` | diário, 04:10 | apaga posts já expurgados com mais de 90 dias e coletas com mais de 30; `VACUUM` aos domingos |
 
 Custo de API por coleta: 1 chamada por busca configurada + 1 a cada 10 ASINs da watchlist. Com os exemplos (3 buscas por nicho, coleta a cada 60–90 min), são cerca de 100 chamadas/dia, bem abaixo do que se espera de cota. A Amazon não publica a cota do Creators API na documentação pública; ajuste `AMAZON_RPS` se ela informar outra.
 
@@ -232,7 +236,7 @@ Custo de API por coleta: 1 chamada por busca configurada + 1 a cada 10 ASINs da 
 Esse é o ponto mais fraco do plano, e é bom encarar de frente: **sem API não há preço conforme as regras**, e o post com "De x Por" que você pediu depende dela.
 
 Caminho sugerido:
-1. Use a aba **Post manual** do painel. Com `ALLOW_MANUAL_PRICES=false`, o post sai com "💰 Confira o preço atualizado no link". O link vem do SiteStripe (barra de Associados no próprio site da Amazon).
+1. Use a aba **Post manual** do painel. Com `ALLOW_MANUAL_PRICES=false`, o post sai com "💰 Confira o preço atualizado no link". O link é montado automaticamente com a sua tag.
 2. Divulgue a comunidade e cresça até as 10 vendas em 30 dias.
 3. Gere as credenciais no Associates Central, troque para `CATALOG_MODE=creators` e o fluxo completo liga.
 
@@ -255,12 +259,15 @@ Outro ponto a ter em mente: a Amazon pode **revogar o acesso à API** se as vend
 | `AMAZON_CREDENTIAL_VERSION` | `3.1` | Brasil = grupo North America (3.1; credencial antiga 2.1) |
 | `AMAZON_TOKEN_URL` | automático | sobrescreve o endpoint de token |
 | `AMAZON_RPS` | `1` | requisições/segundo |
-| `MAX_PRICE_AGE_MINUTES` | `60` | idade máxima do preço no momento do envio |
+| `MAX_PRICE_AGE_MINUTES` | `0` | 0 = revalida o preço sempre, no clique de Enviar. Um valor em minutos aceita preço com até N min de idade |
+| `MONITOR_SENT_ENABLED` | `false` | acompanhar a oferta por 48h depois do envio e avisar quando acabar |
 | `ALLOW_MANUAL_PRICES` | `false` | ver seção 10 |
 | `CONTENT_RETENTION_HOURS` | `24` | **não aumente**: é o limite da Licença |
 | `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | vazio | IA para as chamadas (opcional) |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | vazio | alertas para você (opcional) |
-| `PANEL_USER` / `PANEL_PASSWORD` | admin / troque… | **troque antes de expor** |
+| `PANEL_USER` / `PANEL_PASSWORD` | admin / *(vazio)* | **obrigatória, mínimo 12 caracteres**: o painel não sobe com senha vazia ou de exemplo |
+| `COOKIE_SECURE` | `false` | `true` quando o painel estiver atrás de HTTPS (cookie Secure + HSTS) |
+| `HOST` / `PORT` | `127.0.0.1` / `8000` | por padrão só a própria máquina acessa |
 
 ### `config/niches.yaml` (1 bloco por comunidade)
 
@@ -274,14 +281,14 @@ Outro ponto a ter em mente: a Amazon pode **revogar o acesso à API** se as vend
 - **Local:** ver `README.md` (venv → `python -m app.cli serve`).
 - **Docker:** `docker compose up -d --build`. Os dados ficam em `./data`.
 - **24/7:** qualquer VPS pequena (1 vCPU, 512 MB) ou um PC ligado. O consumo é mínimo.
-- **Segurança:** o painel usa Basic Auth, que **sem HTTPS manda a senha em texto aberto**. Se for expor na internet, ponha atrás de um proxy com TLS (Caddy faz isso sozinho) ou acesse por VPN/Tailscale. Nunca versione o `.env`.
+- **Segurança:** login por sessão (cookie HttpOnly/SameSite=Strict), proteção CSRF, bloqueio após 5 senhas erradas em 15 min, cabeçalhos de segurança e escuta só em `127.0.0.1`. Para acessar de outro aparelho, use VPN (Tailscale) ou um proxy com HTTPS (Caddy) e ligue `COOKIE_SECURE=true`. Nunca versione o `.env`. Detalhes em `RELATORIO_QA_v2.md`.
 - **Backup:** copiar `data/promo.db`.
 
 ---
 
 ## 13. Testes e verificação
 
-`pytest -q` → **29 testes, todos passando.** Cobrem:
+`pytest -q` → **62 testes, todos passando** (cobertura de ~93%). A bateria completa de avaliação está em `RELATORIO_QA_v2.md`. Os testes cobrem:
 - formatação (R$ brasileiro, riscado, `#publi` na primeira linha, carimbo, truncagem sem reescrita, link transparente);
 - todas as regras do scorer, incluindo cooldown e repost com queda de preço;
 - fluxo completo do serviço: coleta sem duplicar, chamadas sem repetição, **revalidação de preço velho no envio**, **bloqueio de envio quando a oferta morreu**, monitor marcando promoção encerrada, expiração e expurgo das 24h, post manual com preço oculto ou exibido;

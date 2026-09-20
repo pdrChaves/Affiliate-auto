@@ -1,0 +1,30 @@
+app/config.py:7: error: Library stubs not installed for "yaml"  [import-untyped]
+app/config.py:7: note: Hint: "python3 -m pip install types-PyYAML"
+app/config.py:7: note: (or run "mypy --install-types" to install all missing stub packages)
+app/config.py:7: note: See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports
+app/db.py:116: error: Incompatible return value type (got "int | None", expected "int")  [return-value]
+app/db.py:131: error: Argument 1 to "append" of "list" has incompatible type "int"; expected "str"  [arg-type]
+app/service.py:33: error: Incompatible types in assignment (expression has type "time", variable has type "datetime | None")  [assignment]
+app/service.py:35: error: Unsupported operand types for <= ("time" and "datetime")  [operator]
+app/service.py:35: error: Unsupported operand types for <= ("time" and "None")  [operator]
+app/service.py:35: note: Right operand is of type "datetime | None"
+app/service.py:35: error: Unsupported operand types for >= ("time" and "None")  [operator]
+app/service.py:35: note: Left operand is of type "datetime | None"
+app/service.py:35: error: Unsupported operand types for <= ("datetime" and "time")  [operator]
+app/service.py:35: error: Unsupported operand types for >= ("datetime" and "time")  [operator]
+app/service.py:115: error: Value of type "dict[Any, Any] | None" is not indexable  [index]
+app/service.py:116: error: Incompatible return value type (got "dict[Any, Any] | None", expected "dict[Any, Any]")  [return-value]
+app/service.py:117: error: Value of type "dict[Any, Any] | None" is not indexable  [index]
+app/service.py:118: error: Value of type "dict[Any, Any] | None" is not indexable  [index]
+app/service.py:121: error: Incompatible return value type (got "dict[Any, Any] | None", expected "dict[Any, Any]")  [return-value]
+app/service.py:128: error: Value of type "dict[Any, Any] | None" is not indexable  [index]
+app/service.py:131: error: Value of type "dict[Any, Any] | None" is not indexable  [index]
+app/service.py:132: error: Incompatible return value type (got "dict[Any, Any] | None", expected "dict[Any, Any]")  [return-value]
+app/service.py:138: error: Value of type "dict[Any, Any] | None" is not indexable  [index]
+app/service.py:142: error: Value of type "dict[Any, Any] | None" is not indexable  [index]
+app/service.py:144: error: Value of type "dict[Any, Any] | None" is not indexable  [index]
+app/service.py:158: error: Value of type "dict[Any, Any] | None" is not indexable  [index]
+app/service.py:158: error: Argument 1 to "is_stale" of "PromoService" has incompatible type "dict[Any, Any] | None"; expected "dict[Any, Any]"  [arg-type]
+app/service.py:160: error: Value of type "dict[Any, Any] | None" is not indexable  [index]
+app/service.py:161: error: Value of type "dict[Any, Any] | None" is not indexable  [index]
+Found 24 errors in 3 files (checked 22 source files)

@@ -1,84 +1,146 @@
-"""Testes dinâmicos de segurança contra o servidor rodando."""
-import json, time, httpx
-B = "http://localhost:8766"; A = ("admin", "troque-esta-senha")
-c = httpx.Client(base_url=B, timeout=30)
+"""Testes dinâmicos de segurança contra o servidor rodando (v2: login por sessão)."""
+import json
+import subprocess
+import sys
+import time
+
+import httpx
+
+from common import PASSWORD, RESULTS, ROOT, csrf, login
+
+B = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8766"
 R = []
+
+
 def rec(id, name, passed, detail, sev="info"):
     R.append({"id": id, "teste": name, "passou": passed, "detalhe": detail, "severidade_se_falha": sev})
 
-# 1 auth em todas as rotas
-routes = [("GET","/"),("POST","/collect"),("POST","/watch"),("POST","/watch/remove"),("POST","/manual"),
-          ("POST","/posts/1/approve"),("POST","/posts/1/reject"),("POST","/posts/1/refresh"),("POST","/posts/1/headline"),
-          ("POST","/posts/1/coupon"),("GET","/posts/1/send"),("POST","/posts/1/sent")]
-unauth = [(m,p,c.request(m,p).status_code) for m,p in routes]
-rec("SEC-01","Rotas do painel exigem autenticação", all(s==401 for *_,s in unauth), unauth, "critica")
-bad = c.get("/", auth=("admin","errada")).status_code
-rec("SEC-02","Senha errada é recusada", bad==401, bad, "critica")
-rec("SEC-03","Senha padrão de exemplo NÃO é aceita", c.get("/", auth=A).status_code!=200,
-    "o servidor sobe e aceita 'admin/troque-esta-senha' sem aviso", "alta")
-# 4 força bruta
-t=time.perf_counter(); codes=[c.get("/", auth=("admin",f"x{i}")).status_code for i in range(300)]; dt=time.perf_counter()-t
-rec("SEC-04","Força bruta é limitada (lockout/rate limit)", 429 in codes,
-    f"300 tentativas em {dt:.1f}s ({300/dt:.0f}/s), nenhuma bloqueada", "alta")
-# 5 endpoints públicos
-pub = {p: c.get(p).status_code for p in ["/docs","/redoc","/openapi.json","/health"]}
-rec("SEC-05","Documentação da API não fica pública", pub["/openapi.json"]!=200, pub, "media")
-# 6 headers
-h = c.get("/", auth=A).headers
-want = ["content-security-policy","x-frame-options","x-content-type-options","referrer-policy","strict-transport-security"]
-missing=[x for x in want if x not in h]
-rec("SEC-06","Cabeçalhos de segurança presentes", not missing, {"ausentes": missing}, "media")
-# 7 CSRF
-n0 = len(c.get("/?tab=descartados", auth=A).text)
-r = c.post("/collect", data={"niche":""}, auth=A, headers={"Origin":"https://site-malicioso.com","Referer":"https://site-malicioso.com/x"})
-rec("SEC-07","POST de outra origem (CSRF) é recusado", r.status_code in (400,403),
-    f"POST com Origin=https://site-malicioso.com → {r.status_code} (aceito)", "alta")
-# 8 XSS
-xs = "<script>alert('xss')</script>"; xh = '"><img src=x onerror=alert(1)>'; xt="</textarea><script>alert(2)</script>"
-c.post("/manual", auth=A, data={"niche":"lego","asin":"B0XSSXSS01","title":xs+xt,"url":"https://www.amazon.com.br/dp/B0XSSXSS01?tag=t-20","coupon":xh})
-pid = max(p for p in [1]) if False else None
-page = c.get("/", auth=A).text
-import re
-ids = [int(x) for x in re.findall(r"/posts/(\d+)/send", page)]
-sendp = c.get(f"/posts/{max(ids)}/send", auth=A).text
-raw_hits = [s for s in ["<script>alert('xss')","<img src=x onerror","</textarea><script>"] if s in page or s in sendp]
-rec("SEC-08","XSS: HTML injetado é escapado (painel e tela de envio)", not raw_hits, {"payloads_refletidos_crus": raw_hits}, "alta")
-pid_x = max(ids)
-c.post(f"/posts/{pid_x}/headline", auth=A, data={"headline": xh})
-page = c.get("/", auth=A).text
-rec("SEC-09","XSS via campo de chamada (headline)", '<img src=x onerror' not in page.lower(), "atributo value escapado", "alta")
-# 10 validação de URL manual
-bad_urls = ["https://evil.example/phish?x=amazon.com.br&tag=t-20","javascript:alert(1)//amazon.com.br?tag=1","https://amazon.com.br.evil.example/?tag=x"]
-acc = {u: c.post("/manual", auth=A, data={"niche":"lego","asin":"B0URLURL01","title":"t","url":u}, follow_redirects=False).status_code for u in bad_urls}
-rec("SEC-10","Link manual só aceita domínio da Amazon", all(v==400 for v in acc.values()), acc, "media")
-# 11 SQLi
-sq = {}
-for p in ["' OR '1'='1","lego' UNION SELECT 1--","1; DROP TABLE posts;--"]:
-    sq[p] = c.get("/", params={"niche":p}, auth=A).status_code
-c.post("/watch/remove", auth=A, data={"niche":"x' OR 1=1--","asin":"x"})
-still = c.get("/", auth=A).status_code==200 and "Enviar" in c.get("/", auth=A).text
-rec("SEC-11","SQL injection em parâmetros", still and all(v==200 for v in sq.values()), {"status": sq, "banco_intacto": still}, "critica")
-# 12 entradas inválidas → 500
+
 def safe(fn):
-    try: return fn().status_code
-    except httpx.HTTPError as e: return 500
-inv = {"post_inexistente_refresh": safe(lambda: c.post("/posts/999999/refresh", auth=A)),
-       "post_inexistente_headline": safe(lambda: c.post("/posts/999999/headline", auth=A, data={"headline":"x"})),
-       "post_inexistente_approve": safe(lambda: c.post("/posts/999999/approve", auth=A, follow_redirects=False)),
-       "nicho_inexistente_collect": safe(lambda: c.post("/collect", auth=A, data={"niche":"naoexiste"})),
-       "nicho_inexistente_manual": safe(lambda: c.post("/manual", auth=A, data={"niche":"naoexiste","asin":"B0","title":"t","url":"https://www.amazon.com.br/dp/B0?tag=t"})),
-       "preco_invalido_manual": safe(lambda: c.post("/manual", auth=A, data={"niche":"lego","asin":"B0","title":"t","url":"https://www.amazon.com.br/dp/B0?tag=t","price":"abc"}))}
-rec("SEC-12","Entradas inválidas retornam 4xx (não 500)", not any(v>=500 for v in inv.values()), inv, "baixa")
-# 13 payload gigante
-big = "A"*(10*1024*1024)
-t=time.perf_counter(); r = c.post("/manual", auth=A, data={"niche":"lego","asin":"B0BIGBIG01","title":big,"url":"https://www.amazon.com.br/dp/B0BIGBIG01?tag=t"}, follow_redirects=False); dt=time.perf_counter()-t
-rec("SEC-13","Limite de tamanho de entrada", r.status_code in (400,413,422), f"título de 10 MB → {r.status_code} em {dt:.2f}s (gravado no banco)", "media")
-# 14 CRLF / redirect
-r = c.post("/posts/1/reject", auth=A, data={"tab":"fila\r\nSet-Cookie: pwn=1"}, follow_redirects=False)
-rec("SEC-14","Injeção de cabeçalho via redirect", "pwn" not in r.headers.get("set-cookie","") , {"status":r.status_code,"location":r.headers.get("location")}, "media")
-r = c.post("/posts/1/reject", auth=A, data={"tab":"//evil.example"}, follow_redirects=False)
-rec("SEC-15","Open redirect", not r.headers.get("location","").startswith("//"), r.headers.get("location"), "media")
-# 16 health info
-rec("SEC-16","/health não expõe detalhes internos", "mode" not in c.get("/health").text, c.get("/health").json(), "baixa")
-json.dump(R, open("/home/claude/qa/dast.json","w"), ensure_ascii=False, indent=1, default=str)
-for x in R: print(("PASS" if x["passou"] else "FAIL"), x["id"], x["teste"], "|", str(x["detalhe"])[:160])
+    try:
+        return fn().status_code
+    except httpx.HTTPError:
+        return 599
+
+
+anon = httpx.Client(base_url=B, timeout=30)
+# 1 autenticação em todas as rotas
+routes = [("GET", "/"), ("POST", "/collect"), ("POST", "/watch"), ("POST", "/watch/remove"), ("POST", "/manual"),
+          ("POST", "/posts/1/approve"), ("POST", "/posts/1/reject"), ("POST", "/posts/1/refresh"),
+          ("POST", "/posts/1/headline"), ("POST", "/posts/1/coupon"), ("GET", "/posts/1/send"), ("POST", "/posts/1/sent")]
+res = [(m, p, anon.request(m, p, follow_redirects=False)) for m, p in routes]
+ok = all((r.status_code == 303 and r.headers.get("location") == "/login") if m == "GET" else r.status_code in (401, 403)
+         for m, p, r in res)
+rec("SEC-01", "Rotas do painel exigem autenticação", ok, [(m, p, r.status_code) for m, p, r in res], "critica")
+rec("SEC-02", "Senha errada é recusada", login(anon, "senha-errada-123").status_code == 401, "401", "critica")
+
+# 3 senha padrão: o servidor precisa se recusar a subir
+proc = subprocess.run([sys.executable, "-c", "from app.web.server import create_app; create_app(with_scheduler=False)"],
+                      cwd=ROOT, capture_output=True, text=True, timeout=60,
+                      env={"PATH": "/usr/bin:/bin", "PANEL_PASSWORD": "troque-esta-senha", "CATALOG_MODE": "mock",
+                           "DATABASE_PATH": ":memory:"})
+rec("SEC-03", "Senha padrão/fraca impede o painel de subir", proc.returncode != 0 and "Painel não iniciado" in proc.stderr,
+    proc.stderr.strip().splitlines()[-1][:160] if proc.stderr else proc.returncode, "alta")
+
+pub = {p: anon.get(p).status_code for p in ["/docs", "/redoc", "/openapi.json"]}
+rec("SEC-05", "Documentação da API não fica pública", all(v == 404 for v in pub.values()), pub, "media")
+
+c = httpx.Client(base_url=B, timeout=30)
+lr = login(c)
+cookie = lr.headers.get("set-cookie", "")
+logged = lr.status_code == 303
+h = c.get("/").headers
+want = ["content-security-policy", "x-frame-options", "x-content-type-options", "referrer-policy"]
+missing = [x for x in want if x not in h]
+rec("SEC-06", "Cabeçalhos de segurança presentes", logged and not missing,
+    {"ausentes": missing, "csp": h.get("content-security-policy", "")[:80] + "…",
+     "hsts": "ligado só com COOKIE_SECURE=true (HTTPS)"}, "media")
+
+tok = csrf(c)
+a = c.post("/collect", data={"niche": ""}, follow_redirects=False).status_code
+b = c.post("/collect", data={"niche": "", "csrf": "forjado"}, follow_redirects=False).status_code
+o = c.post("/collect", data={"niche": "", "csrf": tok}, headers={"Origin": "https://site-malicioso.com"},
+           follow_redirects=False).status_code
+legit = c.post("/collect", data={"niche": "", "csrf": tok}, follow_redirects=False).status_code
+rec("SEC-07", "CSRF: POST sem token, com token forjado ou de outra origem é recusado",
+    a == 403 and b == 403 and o == 403 and legit == 303 and "samesite=strict" in cookie.lower(),
+    {"sem_token": a, "token_forjado": b, "origin_malicioso": o, "legitimo": legit,
+     "cookie": "HttpOnly; SameSite=Strict" if "samesite=strict" in cookie.lower() else cookie}, "alta")
+
+xs = "<script>alert('xss')</script>"
+xh = '"><img src=x onerror=alert(1)>'
+xt = "</textarea><script>alert(2)</script>"
+c.post("/manual", data={"csrf": tok, "niche": "lego", "asin": "B0XSSXSS01", "title": (xs + xt)[:290], "coupon": xh[:30]})
+page = c.get("/").text
+import re  # noqa: E402
+
+ids = [int(x) for x in re.findall(r"/posts/(\d+)/send", page)]
+sendp = c.get(f"/posts/{max(ids)}/send").text
+raw = [s for s in ["<script>alert('xss')", "<img src=x onerror", "</textarea><script>"] if s in page or s in sendp]
+rec("SEC-08", "XSS: HTML injetado é escapado (painel e tela de envio)", not raw, {"refletidos_crus": raw}, "alta")
+c.post(f"/posts/{max(ids)}/headline", data={"csrf": tok, "headline": xh})
+rec("SEC-09", "XSS via campo de chamada (headline)", "<img src=x onerror" not in c.get("/").text.lower(), "escapado", "alta")
+
+bad_urls = ["https://evil.example/phish?x=amazon.com.br&tag=t-20", "javascript:alert(1)//amazon.com.br?tag=1",
+            "https://amazon.com.br.evil.example/?tag=x"]
+leaks = []
+for i, u in enumerate(bad_urls):
+    c.post("/manual", data={"csrf": tok, "niche": "radar-homem", "asin": f"B0URLURL0{i}", "title": "t", "url": u})
+page = c.get("/?niche=radar-homem").text
+leaks = [u for u in ["evil.example", "javascript:"] if u in page]
+rec("SEC-10", "Post manual não aceita link de terceiros", not leaks,
+    "campo de URL removido: o link é sempre amazon.com.br/dp/ASIN?tag=SUA_TAG; URLs enviadas foram ignoradas"
+    if not leaks else leaks, "alta")
+
+sq = {p: c.get("/", params={"niche": p}).status_code for p in ["' OR '1'='1", "lego' UNION SELECT 1--", "1; DROP TABLE posts;--"]}
+c.post("/watch/remove", data={"csrf": tok, "niche": "x' OR 1=1--", "asin": "x"})
+intact = "Enviar" in c.get("/").text
+rec("SEC-11", "SQL injection em parâmetros", intact and all(v == 200 for v in sq.values()), {"status": sq, "banco_intacto": intact}, "critica")
+
+inv = {"post_inexistente_refresh": safe(lambda: c.post("/posts/999999/refresh", data={"csrf": tok})),
+       "post_inexistente_headline": safe(lambda: c.post("/posts/999999/headline", data={"csrf": tok, "headline": "x"})),
+       "post_inexistente_approve": safe(lambda: c.post("/posts/999999/approve", data={"csrf": tok})),
+       "nicho_inexistente_collect": safe(lambda: c.post("/collect", data={"csrf": tok, "niche": "naoexiste"})),
+       "nicho_inexistente_manual": safe(lambda: c.post("/manual", data={"csrf": tok, "niche": "naoexiste", "asin": "B0ABCDEF12", "title": "t"})),
+       "preco_invalido_manual": safe(lambda: c.post("/manual", data={"csrf": tok, "niche": "lego", "asin": "B0ABCDEF12", "title": "t", "price": "abc"}))}
+err_page = c.post("/posts/999999/refresh", data={"csrf": tok}).text
+rec("SEC-12", "Entradas inválidas retornam 4xx (não 500) e sem stack trace",
+    all(400 <= v < 500 for v in inv.values()) and "Traceback" not in err_page, inv, "baixa")
+
+big = "A" * (10 * 1024 * 1024)
+r = safe(lambda: c.post("/manual", data={"csrf": tok, "niche": "lego", "asin": "B0BIGBIG01", "title": big}))
+r2 = safe(lambda: c.post("/manual", data={"csrf": tok, "niche": "lego", "asin": "B0BIGBIG01", "title": "A" * 400}))
+rec("SEC-13", "Limite de tamanho de entrada", r == 413 and r2 == 422, {"corpo_10MB": r, "titulo_400_chars": r2}, "media")
+
+r = c.post("/posts/1/reject", data={"csrf": tok, "tab": "fila\r\nSet-Cookie: pwn=1"}, follow_redirects=False)
+rec("SEC-14", "Injeção de cabeçalho via redirect", "pwn" not in r.headers.get("set-cookie", ""),
+    {"status": r.status_code, "location": r.headers.get("location")}, "media")
+r = c.post("/posts/2/reject", data={"csrf": tok, "tab": "//evil.example"}, follow_redirects=False)
+rec("SEC-15", "Open redirect", not (r.headers.get("location") or "").startswith("//"), r.headers.get("location"), "media")
+hj = anon.get("/health").json()
+rec("SEC-16", "/health não expõe detalhes internos", set(hj) == {"ok"}, hj, "baixa")
+
+# novos
+tok2 = csrf(c)
+c.post("/logout", data={"csrf": tok2})
+after = c.get("/", follow_redirects=False).status_code
+rec("SEC-17", "Logout invalida a sessão no servidor", after == 303, f"GET / após logout → {after} (login)", "media")
+forged = httpx.Client(base_url=B, cookies={"pr_session": "a" * 43}).get("/", follow_redirects=False).status_code
+rec("SEC-18", "Cookie de sessão forjado é recusado", forged == 303, forged, "alta")
+
+# por último: bloqueia o IP do teste
+# 4 força bruta (IP próprio do teste; outro cliente depois)
+brute = httpx.Client(base_url=B, timeout=30)
+t = time.perf_counter()
+codes = [login(brute, f"x-errada-{i:04d}").status_code for i in range(300)]
+dt = time.perf_counter() - t
+first_block = codes.index(429) + 1 if 429 in codes else None
+rec("SEC-04", "Força bruta é limitada", first_block is not None and codes.count(401) <= 5,
+    f"300 tentativas em {dt:.1f}s: {codes.count(401)} avaliadas, {codes.count(429)} bloqueadas (429) a partir da "
+    f"{first_block}ª; senha correta durante o bloqueio → {login(brute).status_code}", "alta")
+
+R.sort(key=lambda x: int(x['id'].split('-')[1]))
+json.dump(R, open(RESULTS / "dast.json", "w"), ensure_ascii=False, indent=1, default=str)
+for x in R:
+    print(("PASS" if x["passou"] else "FAIL"), x["id"], x["teste"], "|", str(x["detalhe"])[:170])
+print(f"\n{sum(x['passou'] for x in R)}/{len(R)} aprovados")

@@ -37,7 +37,7 @@ def fallback_headline(offer: Offer, niche: Niche, avoid: list[str] | None = None
     """Escolhe a frase do nicho menos usada recentemente (evita chamadas repetidas em sequência)."""
     options = niche.style.headline_fallbacks or ["OFERTA DO DIA"]
     avoid = avoid or []
-    start = int(hashlib.md5(offer.asin.encode()).hexdigest(), 16) % len(options)
+    start = int(hashlib.md5(offer.asin.encode(), usedforsecurity=False).hexdigest(), 16) % len(options)
     ordered = options[start:] + options[:start]
     return min(ordered, key=lambda h: avoid.count(h))
 

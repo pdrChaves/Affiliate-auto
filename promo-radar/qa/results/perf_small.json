@@ -2,90 +2,90 @@
  {
   "rota": "GET /health",
   "concorrencia": 1,
-  "req": 6790,
-  "rps": 856.3,
-  "p50_ms": 1.1,
-  "p95_ms": 1.5,
-  "p99_ms": 1.7,
-  "max_ms": 9.9,
+  "req": 5143,
+  "rps": 646.1,
+  "p50_ms": 1.5,
+  "p95_ms": 1.9,
+  "p99_ms": 2.0,
+  "max_ms": 20.9,
   "erros": 0,
   "codes": {
-   "200": 6790
+   "200": 5143
   },
   "cenario": "health"
  },
  {
   "rota": "GET /health",
   "concorrencia": 50,
-  "req": 3801,
-  "rps": 475.0,
-  "p50_ms": 60.3,
-  "p95_ms": 371.4,
-  "p99_ms": 624.7,
-  "max_ms": 1216.9,
+  "req": 3690,
+  "rps": 460.6,
+  "p50_ms": 63.3,
+  "p95_ms": 391.6,
+  "p99_ms": 617.5,
+  "max_ms": 1192.3,
   "erros": 0,
   "codes": {
-   "200": 3801
+   "200": 3690
   },
   "cenario": "health"
  },
  {
   "rota": "GET /",
   "concorrencia": 1,
-  "req": 3581,
-  "rps": 449.9,
-  "p50_ms": 2.2,
-  "p95_ms": 2.6,
-  "p99_ms": 3.0,
-  "max_ms": 17.4,
+  "req": 2933,
+  "rps": 368.2,
+  "p50_ms": 2.7,
+  "p95_ms": 3.2,
+  "p99_ms": 3.8,
+  "max_ms": 23.2,
   "erros": 0,
   "codes": {
-   "200": 3581
+   "200": 2933
   },
   "cenario": "fila (6 posts)"
  },
  {
   "rota": "GET /",
   "concorrencia": 10,
-  "req": 4778,
-  "rps": 598.0,
-  "p50_ms": 15.2,
-  "p95_ms": 30.7,
-  "p99_ms": 39.1,
-  "max_ms": 55.0,
+  "req": 3655,
+  "rps": 458.5,
+  "p50_ms": 20.2,
+  "p95_ms": 38.8,
+  "p99_ms": 49.3,
+  "max_ms": 64.7,
   "erros": 0,
   "codes": {
-   "200": 4778
+   "200": 3655
   },
   "cenario": "fila (6 posts)"
  },
  {
   "rota": "GET /",
   "concorrencia": 50,
-  "req": 2153,
-  "rps": 265.4,
-  "p50_ms": 132.5,
-  "p95_ms": 534.7,
-  "p99_ms": 816.8,
-  "max_ms": 1080.2,
+  "req": 1991,
+  "rps": 245.3,
+  "p50_ms": 142.7,
+  "p95_ms": 572.3,
+  "p99_ms": 925.7,
+  "max_ms": 1518.3,
   "erros": 0,
   "codes": {
-   "200": 2153
+   "200": 1991
   },
   "cenario": "fila (6 posts)"
  },
  {
   "rota": "GET /posts/1/send",
   "concorrencia": 10,
-  "req": 8451,
-  "rps": 1061.6,
-  "p50_ms": 6.7,
-  "p95_ms": 25.4,
-  "p99_ms": 51.8,
-  "max_ms": 132.4,
+  "req": 6655,
+  "rps": 835.2,
+  "p50_ms": 10.8,
+  "p95_ms": 20.2,
+  "p99_ms": 32.9,
+  "max_ms": 109.2,
   "erros": 0,
   "codes": {
-   "200": 8451
+   "200": 6655
   },
   "cenario": "tela de envio"
  }

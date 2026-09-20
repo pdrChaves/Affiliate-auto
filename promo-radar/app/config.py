@@ -20,6 +20,9 @@ TOKEN_URLS = {
 }
 
 
+WEAK_PASSWORDS = {"troque-esta-senha", "admin", "password", "123456789012", "senha123456789"}
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -34,7 +37,8 @@ class Settings(BaseSettings):
     amazon_api_base: str = "https://creatorsapi.amazon/catalog/v1"
     amazon_rps: float = 1.0
 
-    max_price_age_minutes: int = 60
+    max_price_age_minutes: int = 0      # 0 = revalida o preço SEMPRE antes de gerar o link do envio
+    monitor_sent_enabled: bool = False  # acompanhar a oferta depois do envio e avisar quando acabar
     allow_manual_prices: bool = False
     content_retention_hours: int = 24   # Licença: conteúdo de produto (exceto ASIN) no máx. 24h
 
@@ -45,10 +49,27 @@ class Settings(BaseSettings):
     telegram_chat_id: str = ""
 
     panel_user: str = "admin"
-    panel_password: str = "troque-esta-senha"
+    panel_password: str = ""            # obrigatório, >= 12 caracteres (o painel não sobe sem isso)
+    cookie_secure: bool = False         # true quando o painel estiver atrás de HTTPS (liga Secure + HSTS)
+    session_hours: int = 12
+    login_max_failures: int = 5         # falhas por IP na janela abaixo → bloqueio
+    login_window_minutes: int = 15
+    host: str = "127.0.0.1"             # só a própria máquina; no Docker o compose define 0.0.0.0
+    port: int = 8000
     database_path: str = "data/promo.db"
     niches_file: str = "config/niches.yaml"
     timezone: str = "America/Sao_Paulo"
+
+    def password_problem(self) -> str | None:
+        """Motivo para recusar a senha do painel, ou None se estiver ok."""
+        pw = self.panel_password
+        if not pw:
+            return "PANEL_PASSWORD não definida"
+        if pw in WEAK_PASSWORDS or pw.lower() == self.panel_user.lower():
+            return "PANEL_PASSWORD é a senha de exemplo ou é igual ao usuário"
+        if len(pw) < 12:
+            return "PANEL_PASSWORD precisa ter pelo menos 12 caracteres"
+        return None
 
     @property
     def token_url(self) -> str:

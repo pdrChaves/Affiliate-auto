@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
 
 
@@ -18,8 +17,11 @@ def main(argv: list[str] | None = None) -> None:
     cmd = argv[0] if argv else "serve"
     if cmd == "serve":
         import uvicorn
-        uvicorn.run("app.web.server:app_from_env", factory=True, host=os.getenv("HOST", "0.0.0.0"),
-                    port=int(os.getenv("PORT", "8000")))
+
+        from .config import get_settings
+        s = get_settings()
+        uvicorn.run("app.web.server:app_from_env", factory=True, host=s.host, port=s.port,
+                    proxy_headers=False, server_header=False)
         return
     from .app_factory import build_service
     svc = build_service()
@@ -29,7 +31,8 @@ def main(argv: list[str] | None = None) -> None:
     elif cmd == "monitor":
         print("encerrados:", svc.monitor_sent())
     elif cmd == "purge":
-        print("expirados:", svc.expire_stale_queue(), "| expurgados:", svc.purge_old_content())
+        print("expirados:", svc.expire_stale_queue(), "| expurgados:", svc.purge_old_content(),
+              "| limpeza:", svc.housekeeping())
     elif cmd == "preview":
         for p in svc.db.list_posts(["pending", "approved"]):
             print(f"\n===== #{p['id']} [{p['niche_id']}] nota {p['score']} {p['note'] or ''}\n{p['text']}")

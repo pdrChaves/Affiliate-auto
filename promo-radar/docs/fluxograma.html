@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fluxo do Promo Radar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#F4F6F3; --paper:#FFFFFF; --ink:#17211E; --muted:#5A6964; --line:#CBD5D1;
+  --auto:#1D6A86; --auto-bg:#E2EFF4; --auto-lane:#EEF5F7;
+  --man:#A9560D; --man-bg:#FBEAD8; --man-lane:#FBF4EC;
+  --ext:#667072; --ext-bg:#EEF0F0; --ext-lane:#F3F4F3;
+  --stop:#AE2A20; --stop-bg:#FAE6E3;
+  --display:"Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1514; --paper:#161E1C; --ink:#E2E9E6; --muted:#98A7A2; --line:#2B3633;
+    --auto:#72BCD9; --auto-bg:#14303A; --auto-lane:#121E21;
+    --man:#EFA864; --man-bg:#3A2614; --man-lane:#1C1814;
+    --ext:#9EA7A8; --ext-bg:#1D2425; --ext-lane:#151B1A;
+    --stop:#F08A80; --stop-bg:#3A1714;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1514; --paper:#161E1C; --ink:#E2E9E6; --muted:#98A7A2; --line:#2B3633;
+  --auto:#72BCD9; --auto-bg:#14303A; --auto-lane:#121E21;
+  --man:#EFA864; --man-bg:#3A2614; --man-lane:#1C1814;
+  --ext:#9EA7A8; --ext-bg:#1D2425; --ext-lane:#151B1A;
+  --stop:#F08A80; --stop-bg:#3A1714;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--body);padding-inline:16px;padding-block:28px 56px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+header{display:flex;flex-direction:column;gap:10px;max-width:68ch}
+.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font:800 clamp(30px,5vw,46px)/1.05 var(--display);letter-spacing:-.02em;margin:0;text-wrap:balance}
+h2{font:700 22px/1.2 var(--display);margin:0;text-wrap:balance}
+.lede{margin:0;color:var(--muted);font-size:16.5px}
+.lede b.a{color:var(--auto)} .lede b.m{color:var(--man)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:8px}
+.sw{width:22px;height:14px;border-radius:4px;border:1.5px solid;display:inline-block}
+.sw.a{background:var(--auto-bg);border-color:var(--auto)} .sw.m{background:var(--man-bg);border-color:var(--man)}
+.sw.e{background:var(--ext-bg);border-color:var(--ext);border-style:dashed;border-radius:7px} .sw.s{background:var(--stop-bg);border-color:var(--stop)}
+.sw.d{width:14px;height:14px;transform:rotate(45deg);background:var(--paper);border-color:var(--auto);border-radius:2px}
+.sw.o{background:var(--auto-bg);border-color:var(--auto);border-style:dashed;opacity:.62}
+.tally{display:flex;flex-wrap:wrap;gap:10px}
+.tally div{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 14px;display:flex;gap:10px;align-items:baseline}
+.tally b{font:800 26px/1 var(--display);font-variant-numeric:tabular-nums}
+.tally .a b{color:var(--auto)} .tally .m b{color:var(--man)}
+.tally span{color:var(--muted);font-size:13px}
+figure{margin:0;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px}
+.scroll{overflow-x:auto}
+figure svg{display:block;width:100%;min-width:760px;height:auto}
+figcaption{font-size:13px;color:var(--muted);padding:12px 4px 2px;max-width:80ch}
+.lane{stroke:none} .lane-m{fill:var(--man-lane)} .lane-s{fill:var(--auto-lane)} .lane-e{fill:var(--ext-lane)}
+.lane-t{font:500 12px var(--mono);letter-spacing:.09em} .lane-m-t{fill:var(--man)} .lane-s-t{fill:var(--auto)} .lane-e-t{fill:var(--ext)}
+.nd{stroke-width:1.6}
+.nd.auto{fill:var(--auto-bg);stroke:var(--auto)} .nd.man{fill:var(--man-bg);stroke:var(--man)}
+.nd.ext{fill:var(--ext-bg);stroke:var(--ext);stroke-dasharray:5 4} .nd.stop{fill:var(--stop-bg);stroke:var(--stop)}
+.nd.dec,.nd.deco{fill:var(--paper);stroke:var(--auto)}
+.nd.opt{fill:var(--auto-bg);stroke:var(--auto);stroke-dasharray:5 4;opacity:.62}
+.nd.mano{fill:var(--man-bg);stroke:var(--man);stroke-dasharray:5 4;opacity:.62}
+.nd.deco{stroke-dasharray:5 4;opacity:.62}
+.nt{font:600 13.5px var(--body);fill:var(--ink)} .ns{font:400 12px var(--body);fill:var(--muted)}
+.edge{fill:none;stroke:var(--muted);stroke-width:1.5} .edge-opt{stroke-dasharray:4 4}
+.ah{fill:var(--muted)}
+.el{font:500 11px var(--mono);fill:var(--ink);paint-order:stroke;stroke:var(--paper);stroke-width:4px;stroke-linejoin:round}
+section{display:flex;flex-direction:column;gap:12px}
+.tbl{overflow-x:auto;background:var(--paper);border:1px solid var(--line);border-radius:14px}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:14px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:500 11.5px var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+td.when{font:13px var(--mono);color:var(--muted);white-space:nowrap}
+.who{display:inline-block;font:600 12px var(--body);padding:2px 9px;border-radius:99px;border:1.5px solid}
+.who.a{color:var(--auto);border-color:var(--auto);background:var(--auto-bg)} .who.m{color:var(--man);border-color:var(--man);background:var(--man-bg)}
+.note{max-width:72ch;color:var(--muted);margin:0}
+.note b{color:var(--ink)}
+.note code{font:12.5px var(--mono);background:var(--paper);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+td em{color:var(--muted);font-style:normal;font-size:12.5px}
+</style>
+</head><body>
+<div class="wrap">
+<header>
+  <div class="eyebrow">Promo Radar · v1.1 · Amazon → WhatsApp</div>
+  <h1>Fluxo do Promo Radar</h1>
+  <p class="lede">Da coleta de ofertas na Amazon até a mensagem na comunidade. O que está em <b class="a">azul</b> o sistema faz sozinho; o que está em <b class="m">laranja</b> depende de você. O preço é conferido na Amazon no instante do envio, então o post só sai com a promoção ativa.</p>
+  <div class="legend">
+    <span><i class="sw a"></i>Automático (sistema)</span>
+    <span><i class="sw m"></i>Manual (você)</span>
+    <span><i class="sw d"></i>Decisão do sistema</span>
+    <span><i class="sw e"></i>Serviço externo</span>
+    <span><i class="sw s"></i>Fim do caminho (descarte/erro)</span>
+    <span><i class="sw o"></i>Desligado por padrão</span>
+  </div>
+</header>
+
+<div class="tally">
+  <div class="a"><b>9</b><span>etapas automáticas + 3 decisões no caminho principal</span></div>
+  <div class="m"><b>7</b><span>etapas manuais (2 opcionais)</span></div>
+  <div><b>1</b><span>clique seu por post publicado (+ “Já enviei”)</span></div>
+</div>
+
+<figure>
+  <div class="scroll">
+<svg viewBox="0 0 960 1900" role="img" aria-label="Fluxograma do Promo Radar: em azul o que o sistema faz sozinho, em laranja o que você faz, em cinza tracejado os serviços externos" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="ah"/></marker></defs>
+<rect x="4" y="0" width="282" height="1896" rx="10" class="lane lane-m"/>
+<text x="145.0" y="26" text-anchor="middle" class="lane-t lane-m-t">VOCÊ · manual</text>
+<rect x="294" y="0" width="392" height="1896" rx="10" class="lane lane-s"/>
+<text x="490.0" y="26" text-anchor="middle" class="lane-t lane-s-t">SISTEMA · automático</text>
+<rect x="694" y="0" width="262" height="1896" rx="10" class="lane lane-e"/>
+<text x="825.0" y="26" text-anchor="middle" class="lane-t lane-e-t">SERVIÇOS EXTERNOS</text>
+<polyline points="263,70 335,70" class="edge " marker-end="url(#ar)"/>
+<text x="299" y="63" text-anchor="middle" class="el">inicia</text>
+<polyline points="490,99 490,156" class="edge " marker-end="url(#ar)"/>
+<polyline points="490,214 490,271" class="edge " marker-end="url(#ar)"/>
+<polyline points="263,185 315,185 315,300 335,300" class="edge " marker-end="url(#ar)"/>
+<text x="289" y="178" text-anchor="middle" class="el">dispara</text>
+<polyline points="645,300 720,300" class="edge " marker-end="url(#ar)"/>
+<text x="682" y="293" text-anchor="middle" class="el">consulta</text>
+<polyline points="490,329 490,381" class="edge " marker-end="url(#ar)"/>
+<polyline points="590,410 720,410" class="edge " marker-end="url(#ar)"/>
+<text x="655" y="403" text-anchor="middle" class="el">não</text>
+<polyline points="490,439 490,487" class="edge " marker-end="url(#ar)"/>
+<text x="498" y="448" class="el">sim</text>
+<polyline points="490,563 490,611" class="edge " marker-end="url(#ar)"/>
+<polyline points="590,640 720,640" class="edge " marker-end="url(#ar)"/>
+<text x="655" y="633" text-anchor="middle" class="el">não</text>
+<polyline points="490,669 490,722" class="edge " marker-end="url(#ar)"/>
+<text x="498" y="682" class="el">sim</text>
+<polyline points="645,760 720,760" class="edge edge-opt" marker-end="url(#ar)"/>
+<text x="682" y="753" text-anchor="middle" class="el">chamada</text>
+<polyline points="490,798 490,851" class="edge " marker-end="url(#ar)"/>
+<polyline points="645,880 720,880" class="edge edge-opt" marker-end="url(#ar)"/>
+<text x="682" y="873" text-anchor="middle" class="el">notifica</text>
+<polyline points="263,880 335,880" class="edge " marker-end="url(#ar)"/>
+<text x="299" y="873" text-anchor="middle" class="el">cria</text>
+<polyline points="490,909 490,935 205,935 205,962" class="edge " marker-end="url(#ar)"/>
+<text x="215" y="928" class="el">você abre o painel</text>
+<polyline points="263,1000 335,1000" class="edge edge-opt" marker-end="url(#ar)"/>
+<text x="299" y="993" text-anchor="middle" class="el">sem ação</text>
+<polyline points="145,1038 145,1095" class="edge " marker-end="url(#ar)"/>
+<polyline points="263,1115 335,1115" class="edge " marker-end="url(#ar)"/>
+<text x="299" y="1108" text-anchor="middle" class="el">link</text>
+<polyline points="490,1144 490,1201" class="edge " marker-end="url(#ar)"/>
+<polyline points="590,1230 720,1230" class="edge " marker-end="url(#ar)"/>
+<text x="655" y="1223" text-anchor="middle" class="el">acabou</text>
+<polyline points="390,1230 145,1230 145,1307" class="edge " marker-end="url(#ar)"/>
+<text x="153" y="1222" class="el">válida · ou API fora (aviso)</text>
+<polyline points="263,1345 720,1345" class="edge " marker-end="url(#ar)"/>
+<text x="492" y="1338" text-anchor="middle" class="el">você publica</text>
+<polyline points="145,1383 145,1440" class="edge " marker-end="url(#ar)"/>
+<polyline points="263,1460 335,1460" class="edge edge-opt" marker-end="url(#ar)"/>
+<text x="299" y="1453" text-anchor="middle" class="el">se ligado</text>
+<polyline points="490,1489 490,1546" class="edge edge-opt" marker-end="url(#ar)"/>
+<polyline points="590,1575 740,1575 740,1460 645,1460" class="edge edge-opt" marker-end="url(#ar)"/>
+<text x="748" y="1530" class="el">não · checa de novo em 1h</text>
+<polyline points="490,1604 490,1661" class="edge edge-opt" marker-end="url(#ar)"/>
+<text x="498" y="1615" class="el">sim</text>
+<polyline points="335,1690 263,1690" class="edge edge-opt" marker-end="url(#ar)"/>
+<text x="299" y="1683" text-anchor="middle" class="el">avisa</text>
+<rect x="27" y="41" width="236" height="58" rx="8" class="nd man"/>
+<text x="145" y="66" text-anchor="middle" class="nt">Configura .env e niches.yaml</text>
+<text x="145" y="84" text-anchor="middle" class="ns">senha, tag, nichos · uma vez</text>
+<rect x="335" y="41" width="310" height="58" rx="8" class="nd auto"/>
+<text x="490" y="66" text-anchor="middle" class="nt">Painel + agendador no ar</text>
+<text x="490" y="84" text-anchor="middle" class="ns">python -m app.cli serve</text>
+<rect x="335" y="156" width="310" height="58" rx="8" class="nd auto"/>
+<text x="490" y="180" text-anchor="middle" class="nt">Agendador dispara a coleta</text>
+<text x="490" y="198" text-anchor="middle" class="ns">a cada 60–90 min, por nicho</text>
+<rect x="27" y="156" width="236" height="58" rx="8" class="nd man"/>
+<text x="145" y="180" text-anchor="middle" class="nt">“Coletar agora” ou ASIN</text>
+<text x="145" y="198" text-anchor="middle" class="ns">na watchlist · atalho opcional</text>
+<rect x="335" y="271" width="310" height="58" rx="8" class="nd auto"/>
+<text x="490" y="296" text-anchor="middle" class="nt">Busca ofertas e preços</text>
+<text x="490" y="314" text-anchor="middle" class="ns">searchItems + getItems (lotes de 10)</text>
+<rect x="720" y="271" width="210" height="58" rx="14" class="nd ext"/>
+<text x="825" y="296" text-anchor="middle" class="nt">Amazon Creators API</text>
+<text x="825" y="314" text-anchor="middle" class="ns">OAuth2 · ~1 req/s</text>
+<polygon points="490.0,381.0 590.0,410 490.0,439.0 390.0,410" class="nd dec"/>
+<text x="490" y="414" text-anchor="middle" class="nt">API respondeu?</text>
+<rect x="720" y="381" width="210" height="58" rx="8" class="nd stop"/>
+<text x="825" y="406" text-anchor="middle" class="nt">Registra o erro</text>
+<text x="825" y="424" text-anchor="middle" class="ns">tenta na próxima coleta</text>
+<rect x="335" y="487" width="310" height="76" rx="8" class="nd auto"/>
+<text x="490" y="512" text-anchor="middle" class="nt">Valida cada oferta</text>
+<text x="490" y="530" text-anchor="middle" class="ns">estoque · buy box · desconto · “De”</text>
+<text x="490" y="548" text-anchor="middle" class="ns">repetição (cooldown)</text>
+<polygon points="490.0,611.0 590.0,640 490.0,669.0 390.0,640" class="nd dec"/>
+<text x="490" y="644" text-anchor="middle" class="nt">Passou nas regras?</text>
+<rect x="720" y="611" width="210" height="58" rx="8" class="nd stop"/>
+<text x="825" y="636" text-anchor="middle" class="nt">Descarta</text>
+<text x="825" y="654" text-anchor="middle" class="ns">motivo em “Últimas coletas”</text>
+<rect x="335" y="722" width="310" height="76" rx="8" class="nd auto"/>
+<text x="490" y="746" text-anchor="middle" class="nt">Escreve o post</text>
+<text x="490" y="764" text-anchor="middle" class="ns">chamada · #publi · De/Por</text>
+<text x="490" y="782" text-anchor="middle" class="ns">link com sua tag · carimbo de horário</text>
+<rect x="720" y="731" width="210" height="58" rx="14" class="nd ext"/>
+<text x="825" y="756" text-anchor="middle" class="nt">Claude API</text>
+<text x="825" y="774" text-anchor="middle" class="ns">só a chamada · opcional</text>
+<rect x="335" y="851" width="310" height="58" rx="8" class="nd auto"/>
+<text x="490" y="876" text-anchor="middle" class="nt">Entra na fila do painel</text>
+<text x="490" y="894" text-anchor="middle" class="ns">alerta no Telegram (opcional)</text>
+<rect x="720" y="851" width="210" height="58" rx="14" class="nd ext"/>
+<text x="825" y="876" text-anchor="middle" class="nt">Telegram</text>
+<text x="825" y="894" text-anchor="middle" class="ns">avisa você · opcional</text>
+<rect x="27" y="842" width="236" height="76" rx="8" class="nd man"/>
+<text x="145" y="866" text-anchor="middle" class="nt">Post manual (sem API)</text>
+<text x="145" y="884" text-anchor="middle" class="ns">ASIN + título · link gerado</text>
+<text x="145" y="902" text-anchor="middle" class="ns">preço oculto por padrão</text>
+<rect x="27" y="962" width="236" height="76" rx="8" class="nd man"/>
+<text x="145" y="986" text-anchor="middle" class="nt">Revisa no painel</text>
+<text x="145" y="1004" text-anchor="middle" class="ns">chamada · cupom · aprovar</text>
+<text x="145" y="1022" text-anchor="middle" class="ns">descartar · revalidar</text>
+<rect x="335" y="971" width="310" height="58" rx="8" class="nd auto"/>
+<text x="490" y="996" text-anchor="middle" class="nt">Fila com +24h expira</text>
+<text x="490" y="1014" text-anchor="middle" class="ns">a cada 30 min</text>
+<rect x="27" y="1095" width="236" height="40" rx="8" class="nd man"/>
+<text x="145" y="1120" text-anchor="middle" class="nt">Clica em “Enviar →”</text>
+<rect x="335" y="1086" width="310" height="58" rx="8" class="nd auto"/>
+<text x="490" y="1110" text-anchor="middle" class="nt">Confere o preço na Amazon</text>
+<text x="490" y="1128" text-anchor="middle" class="ns">sempre, no clique</text>
+<polygon points="490.0,1201.0 590.0,1230 490.0,1259.0 390.0,1230" class="nd dec"/>
+<text x="490" y="1234" text-anchor="middle" class="nt">Resultado?</text>
+<rect x="720" y="1201" width="210" height="58" rx="8" class="nd stop"/>
+<text x="825" y="1226" text-anchor="middle" class="nt">Promoção caiu</text>
+<text x="825" y="1244" text-anchor="middle" class="ns">post expira · envio bloqueado</text>
+<rect x="27" y="1307" width="236" height="76" rx="8" class="nd man"/>
+<text x="145" y="1332" text-anchor="middle" class="nt">Abre no WhatsApp e envia</text>
+<text x="145" y="1350" text-anchor="middle" class="ns">escolhe a comunidade</text>
+<text x="145" y="1368" text-anchor="middle" class="ns">espera o card do link</text>
+<rect x="720" y="1316" width="210" height="58" rx="14" class="nd ext"/>
+<text x="825" y="1340" text-anchor="middle" class="nt">WhatsApp</text>
+<text x="825" y="1358" text-anchor="middle" class="ns">comunidade</text>
+<rect x="27" y="1440" width="236" height="40" rx="8" class="nd man"/>
+<text x="145" y="1464" text-anchor="middle" class="nt">Clica em “Já enviei”</text>
+<rect x="335" y="1431" width="310" height="58" rx="8" class="nd opt"/>
+<text x="490" y="1456" text-anchor="middle" class="nt">Opcional: monitora por 48h</text>
+<text x="490" y="1474" text-anchor="middle" class="ns">desligado por padrão</text>
+<polygon points="490.0,1546.0 590.0,1575 490.0,1604.0 390.0,1575" class="nd deco"/>
+<text x="490" y="1580" text-anchor="middle" class="nt">Promoção acabou?</text>
+<rect x="335" y="1661" width="310" height="58" rx="8" class="nd opt"/>
+<text x="490" y="1686" text-anchor="middle" class="nt">Marca “Encerrado”</text>
+<text x="490" y="1704" text-anchor="middle" class="ns">alerta no Telegram</text>
+<rect x="27" y="1661" width="236" height="58" rx="8" class="nd mano"/>
+<text x="145" y="1686" text-anchor="middle" class="nt">Apaga a mensagem</text>
+<text x="145" y="1704" text-anchor="middle" class="ns">se ainda der (~2 dias)</text>
+<rect x="300" y="1772" width="380" height="76" rx="8" class="nd auto"/>
+<text x="490" y="1796" text-anchor="middle" class="nt">Em paralelo, o tempo todo: limpeza</text>
+<text x="490" y="1814" text-anchor="middle" class="ns">expurga conteúdo em 24h/49h (Licença)</text>
+<text x="490" y="1832" text-anchor="middle" class="ns">diária: apaga antigos · domingo: VACUUM</text>
+</svg>
+  </div>
+  <figcaption>Linhas cheias são o caminho principal; tracejadas são opcionais ou dependem de configuração (IA, Telegram) ou de tempo (expiração, recheck do monitor). No celular, arraste o diagrama para o lado.</figcaption>
+</figure>
+
+<section>
+  <h2>Quem faz o quê</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Etapa</th><th>Quem</th><th>Quando</th></tr></thead>
+    <tbody>
+      <tr><td>Configurar senha, tag de afiliado, credenciais e nichos</td><td><span class="who m">Você</span></td><td class="when">uma vez</td></tr>
+      <tr><td>Buscar ofertas na Amazon (busca por nicho + watchlist)</td><td><span class="who a">Sistema</span></td><td class="when">60–90 min</td></tr>
+      <tr><td>Validar desconto, estoque, buy box, “De” e repetição</td><td><span class="who a">Sistema</span></td><td class="when">a cada coleta</td></tr>
+      <tr><td>Escrever o post (#publi, De/Por, link, carimbo)</td><td><span class="who a">Sistema</span></td><td class="when">a cada coleta</td></tr>
+      <tr><td>Avisar que há post novo na fila</td><td><span class="who a">Sistema</span></td><td class="when">na janela do nicho</td></tr>
+      <tr><td>Revisar: trocar chamada, cupom, aprovar ou descartar</td><td><span class="who m">Você</span></td><td class="when">quando quiser</td></tr>
+      <tr><td>Conferir o preço na Amazon antes de liberar o link</td><td><span class="who a">Sistema</span></td><td class="when">sempre, no clique</td></tr>
+      <tr><td>Escolher a comunidade e enviar no WhatsApp</td><td><span class="who m">Você</span></td><td class="when">1 clique por post</td></tr>
+      <tr><td>Confirmar “Já enviei”</td><td><span class="who m">Você</span></td><td class="when">após enviar</td></tr>
+      <tr><td>Monitorar a oferta e alertar quando acabar <em>(desligado por padrão)</em></td><td><span class="who a">Sistema</span></td><td class="when">1h, por 48h</td></tr>
+      <tr><td>Apagar a mensagem de uma promoção encerrada <em>(só com o monitor ligado)</em></td><td><span class="who m">Você</span></td><td class="when">até ~2 dias</td></tr>
+      <tr><td>Expirar fila velha, expurgar conteúdo, limpar banco</td><td><span class="who a">Sistema</span></td><td class="when">30 min · 1h · diário</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note"><b>Depois do envio:</b> o acompanhamento da oferta vem desligado (<code>MONITOR_SENT_ENABLED=false</code>). A garantia de que o post é honesto está no passo anterior: a conferência do preço no clique. Para voltar a ser avisado quando a promoção acabar — e apagar a mensagem enquanto o WhatsApp permite, por volta de 2 dias —, ligue essa opção.</p>
+  <p class="note"><b>Por que o envio não é automático:</b> os Termos do WhatsApp proíbem mensagens automatizadas por contas comuns, e a API oficial só aceita grupos de até 8 pessoas, sem Comunidades. Automatizar esse passo arriscaria banir o número que administra as comunidades.</p>
+</section>
+</div>
+
+</body></html>

@@ -27,30 +27,28 @@ class Verdict:
     warnings: list[str] = field(default_factory=list)
 
 
-def evaluate(offer: Offer, niche: Niche, db: DB, check_repeat: bool = True) -> Verdict:
+def _hard_reject(offer: Offer, niche: Niche) -> str | None:
+    """Regras eliminatórias. Retorna o código do motivo ou None se passou em todas."""
     if offer.price_cents is None:
-        return Verdict(False, "sem_preco")
-    if not offer.in_stock:
-        return Verdict(False, "fora_de_estoque")
-    if not offer.condition_new:
-        return Verdict(False, "nao_novo")
-    if niche.require_buybox and not offer.is_buybox:
-        return Verdict(False, "nao_buybox")
-    price = offer.price_cents / 100
-    if not (niche.min_price <= price <= niche.max_price):
-        return Verdict(False, "faixa_de_preco")
+        return "sem_preco"
     disc = offer.discount_pct
-    if not offer.basis_cents or disc is None:
-        return Verdict(False, "sem_preco_de")          # o post exige "De x Por"
-    if disc < niche.min_discount_pct:
-        return Verdict(False, "desconto_baixo")
     btype = (offer.basis_type or "").upper()
-    if btype == "LIST_PRICE" and not niche.accept_list_price:
-        return Verdict(False, "de_eh_preco_de_tabela")
+    rules: list[tuple[bool, str]] = [
+        (not offer.in_stock, "fora_de_estoque"),
+        (not offer.condition_new, "nao_novo"),
+        (niche.require_buybox and not offer.is_buybox, "nao_buybox"),
+        (not niche.min_price <= offer.price_cents / 100 <= niche.max_price, "faixa_de_preco"),
+        (not offer.basis_cents or disc is None, "sem_preco_de"),          # o post exige "De x Por"
+        (disc is not None and disc < niche.min_discount_pct, "desconto_baixo"),
+        (btype == "LIST_PRICE" and not niche.accept_list_price, "de_eh_preco_de_tabela"),
+    ]
+    return next((reason for failed, reason in rules if failed), None)
 
-    warnings: list[str] = []
-    score = disc
-    if btype == "LIST_PRICE":
+
+def _score(offer: Offer) -> tuple[float, list[str]]:
+    disc = offer.discount_pct or 0.0
+    score, warnings = disc, []
+    if (offer.basis_type or "").upper() == "LIST_PRICE":
         warnings.append("'De' é preço de tabela/sugerido (não é o preço anterior praticado) — confira")
         score -= 10
     if disc >= SUSPICIOUS_DISCOUNT:
@@ -58,21 +56,37 @@ def evaluate(offer: Offer, niche: Niche, db: DB, check_repeat: bool = True) -> V
         score -= 15
     if offer.deal_badge:
         score += 5
+    return score, warnings
 
-    # repetição: mesmo produto no mesmo nicho (ASIN pode ser guardado sem limite de tempo)
-    last = check_repeat and db.last_post_for(
-        niche.id, offer.asin, [PostStatus.PENDING.value, PostStatus.APPROVED.value, PostStatus.SENT.value,
-                               PostStatus.ENDED.value])
-    if last:
-        if last["status"] in (PostStatus.PENDING.value, PostStatus.APPROVED.value):
-            return Verdict(False, "ja_na_fila")
-        ref = last["sent_at"] or last["created_at"]
-        recent = utcnow() - ref < timedelta(hours=niche.cooldown_hours)
-        # preço do último envio só existe enquanto não foi expurgado (janela de monitoramento)
-        dropped = bool(last["price_cents"]) and \
-            offer.price_cents <= last["price_cents"] * (1 - niche.repost_if_drop_pct / 100)
-        if recent and not dropped:
-            return Verdict(False, "cooldown")
-        if recent and dropped:
-            warnings.append("repost: caiu mais desde o último envio")
+
+def _repeat_check(offer: Offer, niche: Niche, db: DB) -> tuple[str | None, str | None]:
+    """(motivo de rejeição, aviso). ASIN pode ser guardado sem limite de tempo, então o histórico de envios vale."""
+    last = db.last_post_for(niche.id, offer.asin, [PostStatus.PENDING.value, PostStatus.APPROVED.value,
+                                                   PostStatus.SENT.value, PostStatus.ENDED.value])
+    if not last:
+        return None, None
+    if last["status"] in (PostStatus.PENDING.value, PostStatus.APPROVED.value):
+        return "ja_na_fila", None
+    ref = last["sent_at"] or last["created_at"]
+    if utcnow() - ref >= timedelta(hours=niche.cooldown_hours):
+        return None, None
+    # preço do último envio só existe enquanto não foi expurgado (janela de monitoramento)
+    prev = last["price_cents"]
+    if prev and offer.price_cents is not None and \
+            offer.price_cents <= prev * (1 - niche.repost_if_drop_pct / 100):
+        return None, "repost: caiu mais desde o último envio"
+    return "cooldown", None
+
+
+def evaluate(offer: Offer, niche: Niche, db: DB, check_repeat: bool = True) -> Verdict:
+    reason = _hard_reject(offer, niche)
+    if reason:
+        return Verdict(False, reason)
+    score, warnings = _score(offer)
+    if check_repeat:
+        reason, warning = _repeat_check(offer, niche, db)
+        if reason:
+            return Verdict(False, reason)
+        if warning:
+            warnings.append(warning)
     return Verdict(True, "", round(score, 1), warnings)

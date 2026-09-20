@@ -62,7 +62,7 @@ def parse_item(item: dict, marketplace: str, tag: str) -> Offer | None:
         return None
     listings = _g(item, "offersV2", "listings") or []
     # Preferimos a oferta vencedora da buy box (é a que o cliente vê ao clicar).
-    listing = next((l for l in listings if _g(l, "isBuyBoxWinner")), listings[0] if listings else None)
+    listing = next((li for li in listings if _g(li, "isBuyBoxWinner")), listings[0] if listings else None)
     features = _g(item, "itemInfo", "features", "displayValues") or []
     offer = Offer(
         asin=asin,
@@ -94,7 +94,7 @@ def parse_item(item: dict, marketplace: str, tag: str) -> Offer | None:
 class CreatorsClient:
     def __init__(self, settings: Settings, http: httpx.Client | None = None):
         self.s = settings
-        self.http = http or httpx.Client(timeout=20)
+        self.http = http or httpx.Client(timeout=httpx.Timeout(10, connect=5))
         self.limiter = RateLimiter(settings.amazon_rps)
         self._token: str | None = None
         self._token_exp = 0.0
@@ -111,13 +111,16 @@ class CreatorsClient:
                 return self._token
             basic = base64.b64encode(
                 f"{self.s.amazon_credential_id}:{self.s.amazon_credential_secret}".encode()).decode()
-            r = self.http.post(
-                self.s.token_url,
-                data={"grant_type": "client_credentials",
-                      "scope": "creatorsapi/default" if self._is_v2 else "creatorsapi::default"},
-                headers={"Authorization": f"Basic {basic}",
-                         "Content-Type": "application/x-www-form-urlencoded"},
-            )
+            try:
+                r = self.http.post(
+                    self.s.token_url,
+                    data={"grant_type": "client_credentials",
+                          "scope": "creatorsapi/default" if self._is_v2 else "creatorsapi::default"},
+                    headers={"Authorization": f"Basic {basic}",
+                             "Content-Type": "application/x-www-form-urlencoded"},
+                )
+            except httpx.TransportError as e:
+                raise CreatorsAPIError(f"Servidor de token inacessível ({type(e).__name__})") from e
             if r.status_code != 200:
                 raise CreatorsAPIError(f"Falha ao obter token ({r.status_code}): {r.text[:300]}")
             body = r.json()
@@ -132,17 +135,26 @@ class CreatorsClient:
         return {"Authorization": auth, "Content-Type": "application/json",
                 "x-marketplace": self.s.amazon_marketplace}
 
-    def _post(self, op: str, payload: dict) -> dict:
+    def _post(self, op: str, payload: dict, attempts: int = 4) -> dict:
+        """attempts=4 nas rotinas automáticas; 1–2 quando há alguém esperando na tela (falha rápido)."""
         payload = {"partnerTag": self.s.amazon_partner_tag, "marketplace": self.s.amazon_marketplace,
                    "resources": RESOURCES, **payload}
-        for attempt in range(4):
+        last = "sem resposta"
+        for attempt in range(attempts):
             self.limiter.wait()
-            r = self.http.post(f"{self.s.amazon_api_base}/{op}", json=payload, headers=self._headers())
-            if r.status_code == 429 or r.status_code >= 500:   # throttling / instabilidade → backoff
-                time.sleep(2 ** attempt)
+            try:
+                r = self.http.post(f"{self.s.amazon_api_base}/{op}", json=payload, headers=self._headers())
+            except httpx.TransportError as e:                # timeout, conexão recusada, DNS...
+                last = f"{type(e).__name__}"
+                self._backoff(attempt, attempts)
+                continue
+            if r.status_code == 429 or r.status_code >= 500:  # throttling / instabilidade → backoff
+                last = f"HTTP {r.status_code}"
+                self._backoff(attempt, attempts)
                 continue
             if r.status_code == 401:                           # token expirado antes da hora
                 self._token = None
+                last = "HTTP 401"
                 continue
             if r.status_code != 200:
                 raise CreatorsAPIError(f"{op} {r.status_code}: {r.text[:500]}")
@@ -150,14 +162,20 @@ class CreatorsClient:
             for err in _g(body, "errors") or []:
                 log.warning("Creators API %s: %s - %s", op, _g(err, "code"), _g(err, "message"))
             return body
-        raise CreatorsAPIError(f"{op}: esgotou tentativas (throttling)")
+        raise CreatorsAPIError(f"{op}: indisponível após {attempts} tentativa(s) ({last})")
+
+    @staticmethod
+    def _backoff(attempt: int, attempts: int) -> None:
+        if attempt < attempts - 1:
+            time.sleep(min(2 ** attempt, 8))
 
     # ---------- operações ----------
-    def get_items(self, asins: list[str]) -> list[Offer]:
+    def get_items(self, asins: list[str], fast: bool = False) -> list[Offer]:
         out: list[Offer] = []
         for i in range(0, len(asins), 10):   # limite da API: 10 ASINs por chamada
             body = self._post("getItems", {"itemIds": asins[i:i + 10], "itemIdType": "ASIN",
-                                           "condition": "New", "languagesOfPreference": ["pt_BR"]})
+                                           "condition": "New", "languagesOfPreference": ["pt_BR"]},
+                              attempts=2 if fast else 4)
             for it in _g(body, "itemsResult", "items") or []:
                 o = parse_item(it, self.s.amazon_marketplace, self.s.amazon_partner_tag)
                 if o:
