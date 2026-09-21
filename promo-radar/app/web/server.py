@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 from ..app_factory import build_service
 from ..categories import categories, display_name
+from ..db import COUNT_CAP
 from ..models import PostStatus
 from ..pipeline.render import brl
 from ..scheduler import start_scheduler
@@ -42,17 +43,17 @@ TABS = {
 # Mensagens por código fixo (nunca texto vindo da URL → sem injeção de conteúdo)
 MESSAGES = {
     "api_off": ("warn", "API da Amazon indisponível agora. Nada foi alterado; tente de novo em alguns minutos."),
-    "coleta_ok": ("ok", "Coleta concluída."),
-    "coleta_ocupada": ("warn", "Já existe uma coleta em andamento para este nicho."),
-    "coleta_erro": ("bad", "A coleta falhou. Veja o motivo em 'Últimas coletas'."),
+    "busca_ok": ("ok", "Busca concluída."),
+    "busca_erro": ("bad", "A busca falhou. Veja o motivo em 'Últimas buscas'."),
     "salvo": ("ok", "Alteração salva."),
     "enviado": ("ok", "Marcado como enviado."),
-    "nicho_desconhecido": ("bad", "Esse nicho não existe mais no niches.yaml. Recarregue a página."),
+    "na_fila": ("ok", "Produto colocado na fila."),
 }
 
 # Limites de tamanho dos campos (o corpo inteiro também é limitado a 64 KB no middleware)
 Asin = Annotated[str, Form(max_length=20)]
-NicheId = Annotated[str, Form(max_length=40)]
+Termo = Annotated[str, Form(max_length=80)]
+Categoria = Annotated[str, Form(max_length=40)]
 Csrf = Annotated[str, Form(max_length=100)]
 
 
@@ -110,12 +111,12 @@ Post = Annotated[Session, Depends(check_csrf)]
 class View(BaseModel):
     """Filtros da tela, carregados em todo formulário para não se perderem na ação."""
     tab: str = "fila"
-    niche: str = ""
     cat: str = ""
+    q: str = ""
     page: int = 1
 
     def url(self, msg: str | None = None) -> str:
-        q = {"tab": self.tab if self.tab in TABS else "fila", "niche": self.niche, "cat": self.cat,
+        q = {"tab": self.tab if self.tab in TABS else "fila", "cat": self.cat, "q": self.q,
              "page": str(self.page), "msg": msg or ""}
         return "/?" + urlencode({k: v for k, v in q.items() if v})
 
@@ -138,13 +139,12 @@ def card(svc: PromoService, post_id: int) -> dict:  # noqa: D401
     p = svc.db.get_post(post_id)
     if p is None:
         return {"id": post_id, "removed": True}
-    niche = svc.niches.get(p["niche_id"])
     return {
         "id": p["id"], "status": p["status"], "headline": p["headline"] or "", "note": p["note"] or "",
         "coupon": p["offer"].coupon or "", "text_html": wa_to_html(p["text"]),
         "price_checked": local_time(p["price_checked_at"], svc.s.timezone),
         "stale": svc.is_stale(p), "removed": p["status"] not in TABS["fila"],
-        "niche_name": niche.name if niche else p["niche_id"],
+        "query": p["query"] or "",
         "score": p["score"], "category": display_name(p["category"] or "", svc.s.amazon_marketplace),
         "status_pt": STATUS_PT.get(p["status"], p["status"]),
     }
@@ -155,10 +155,23 @@ def acted(request: Request, svc: PromoService, post_id: int, view: View, msg: st
         return back(view, msg)
     data = card(svc, post_id)
     # contagens atualizadas dos filtros, para os chips não ficarem desatualizados sem recarregar
-    data["counts"] = svc.db.count_by_category(TABS["fila"], niche_id=view.niche or None)
+    data["counts"] = svc.db.count_by_category(TABS["fila"], termo=view.q or None)
     data["total"] = sum(data["counts"].values())
     return JSONResponse(data)
 
+
+def view_form(tab: Annotated[str, Form(max_length=20)] = "fila", cat: Categoria = "",
+              q: Termo = "", page: Annotated[int, Form()] = 1) -> View:
+    """Filtros que o formulário carrega junto (POST), para a ação voltar exatamente para a mesma tela."""
+    return View(tab=tab, cat=cat, q=q, page=max(1, page))
+
+
+def view_query(tab: str = "fila", cat: str = "", q: str = "", page: int = 1) -> View:
+    return View(tab=tab, cat=cat, q=q, page=max(1, page))
+
+
+ViewDep = Annotated[View, Depends(view_form)]
+ViewQuery = Annotated[View, Depends(view_query)]
 
 router = APIRouter()
 
@@ -206,81 +219,106 @@ def health(request: Request) -> JSONResponse:
 
 
 @router.get("/", response_class=HTMLResponse)
-def index(request: Request, svc: Svc, session: Auth, tab: str = "fila", niche: str = "", cat: str = "",
+def index(request: Request, svc: Svc, session: Auth, tab: str = "fila", cat: str = "", q: str = "",
           page: int = 1, msg: str = "") -> Response:
     tab = tab if tab in TABS else "fila"
-    niche_id = niche if niche in svc.niches else None
     cats = categories(svc.s.amazon_marketplace)          # categorias oficiais do marketplace
     cat_id = cat if cat in cats else None
-    by_cat = svc.db.count_by_category(TABS[tab], niche_id=niche_id)
-    total = svc.db.count_posts(TABS[tab], niche_id=niche_id, category=cat_id)
+    termo = " ".join(q.split())[:80] or None             # filtro de texto sobre a fila
+    by_cat = svc.db.count_by_category(TABS[tab], termo=termo)
+    # o total sai da mesma contagem dos chips: com o filtro de texto, uma varredura no lugar de duas
+    total = by_cat.get(cat_id, 0) if cat_id else sum(by_cat.values())
     pages = max(1, math.ceil(total / PAGE_SIZE))
     page = min(max(1, page), pages)
-    posts = svc.db.list_posts(TABS[tab], niche_id=niche_id, limit=PAGE_SIZE, offset=(page - 1) * PAGE_SIZE,
-                              category=cat_id)
+    posts = svc.db.list_posts(TABS[tab], limit=PAGE_SIZE, offset=(page - 1) * PAGE_SIZE,
+                              category=cat_id, termo=termo)
     for p in posts:
         p["stale"] = svc.is_stale(p)
-        niche_cfg = svc.niches.get(p["niche_id"])
-        p["niche_name"] = niche_cfg.name if niche_cfg else f"{p['niche_id']} (removido)"
         p["category_name"] = display_name(p["category"] or "", svc.s.amazon_marketplace)
-    view = View(tab=tab, niche=niche_id or "", cat=cat_id or "", page=page)
+    view = View(tab=tab, cat=cat_id or "", q=termo or "", page=page)
     tabs = [t for t in TABS if t != "encerrados" or svc.s.monitor_sent_enabled]
     return TEMPLATES.TemplateResponse(request, "index.html", {
-        "posts": posts, "tab": tab, "tabs": tabs, "niche": niche_id or "", "niches": list(svc.niches.values()),
-        "cats": cats, "cat": cat_id or "", "by_cat": by_cat, "sem_categoria": by_cat.get("", 0),
-        "runs": svc.db.recent_runs(15), "settings": svc.s, "csrf": session.csrf, "page": page, "pages": pages,
-        "total": total, "msg": MESSAGES.get(msg), "watch": {n: svc.db.watchlist(n) for n in svc.niches},
-        "view": view,
+        "posts": posts, "tab": tab, "tabs": tabs, "cats": cats, "cat": cat_id or "", "q": termo or "",
+        "by_cat": by_cat, "sem_categoria": by_cat.get("", 0), "runs": svc.db.recent_runs(15),
+        "settings": svc.s, "csrf": session.csrf, "page": page, "pages": pages, "total": total,
+        "total_txt": f"{COUNT_CAP}+" if total >= COUNT_CAP else str(total),
+        "msg": MESSAGES.get(msg), "watch": svc.db.watchlist(), "buscas": svc.db.searches(), "view": view,
     })
 
 
-def view_form(tab: Annotated[str, Form(max_length=20)] = "fila", niche: NicheId = "",
-              cat: Annotated[str, Form(max_length=40)] = "", page: Annotated[int, Form()] = 1) -> View:
-    """Filtros que o formulário carrega junto (POST), para a ação voltar exatamente para a mesma tela."""
-    return View(tab=tab, niche=niche, cat=cat, page=max(1, page))
+# ---------- barra de pesquisa ----------
+@router.get("/buscar", response_class=HTMLResponse)
+def buscar(request: Request, svc: Svc, session: Auth, q: str = "", cat: str = "") -> Response:
+    """Pesquisa na Amazon e mostra os resultados para você escolher o que vai para a fila."""
+    termo = " ".join(q.split())[:80]
+    cats = categories(svc.s.amazon_marketplace)
+    categoria = cat if cat in cats else "All"
+    resultados, erro = [], None
+    if termo:
+        try:
+            resultados = svc.search(termo, categoria)
+        except CatalogUnavailableError:
+            erro = MESSAGES["api_off"][1]
+        except InvalidInputError as e:
+            erro = str(e)
+    return TEMPLATES.TemplateResponse(request, "buscar.html", {
+        "q": termo, "cat": categoria, "cats": cats, "resultados": resultados, "erro": erro,
+        "settings": svc.s, "csrf": session.csrf, "salvas": svc.db.searches(),
+    })
 
 
-def view_query(tab: str = "fila", niche: str = "", cat: str = "", page: int = 1) -> View:
-    return View(tab=tab, niche=niche, cat=cat, page=max(1, page))
+@router.post("/buscar/fila")
+def buscar_fila(svc: Svc, _: Post, asin: Asin, q: Termo = "", cat: Categoria = "") -> Response:
+    """Coloca na fila um produto que apareceu na busca."""
+    svc.queue_asin(asin, query=q, category=cat or None)
+    return RedirectResponse(f"/buscar?{urlencode({'q': q, 'cat': cat})}&ok={asin}", status_code=303)
 
 
-ViewDep = Annotated[View, Depends(view_form)]
-ViewQuery = Annotated[View, Depends(view_query)]
+@router.post("/buscar/salvar")
+def buscar_salvar(svc: Svc, _: Post, q: Termo, cat: Categoria = "All") -> Response:
+    """Salva a busca para rodar sozinha de tempos em tempos."""
+    svc.save_search(q, cat)
+    return RedirectResponse(f"/buscar?{urlencode({'q': q, 'cat': cat})}&salva=1", status_code=303)
 
 
-@router.post("/collect")
-def collect(svc: Svc, _: Post, view: ViewDep, niche: NicheId = "") -> Response:
-    if niche and niche not in svc.niches:
-        return back(view, "nicho_desconhecido")
-    res = [svc.collect(niche)] if niche else svc.collect_all()
-    if any("error" in r for r in res):
-        return back(view, "coleta_erro")
-    if any("skipped" in r for r in res):
-        return back(view, "coleta_ocupada")
-    return back(view, "coleta_ok")
+@router.post("/buscas/{search_id}/toggle")
+def busca_toggle(svc: Svc, _: Post, search_id: int, view: ViewDep,
+                 enabled: Annotated[str, Form(max_length=5)] = "") -> Response:
+    svc.db.toggle_search(search_id, enabled == "1")
+    return back(view, "salvo")
+
+
+@router.post("/buscas/{search_id}/remover")
+def busca_remover(svc: Svc, _: Post, search_id: int, view: ViewDep) -> Response:
+    svc.db.delete_search(search_id)
+    return back(view, "salvo")
+
+
+@router.post("/buscas/rodar")
+def buscas_rodar(svc: Svc, _: Post, view: ViewDep) -> Response:
+    res = svc.run_saved_searches()
+    return back(view, "busca_erro" if any("error" in r for r in res) else "busca_ok")
 
 
 @router.post("/watch")
-def watch(svc: Svc, _: Post, view: ViewDep, niche: NicheId, asin: Asin) -> Response:
-    if niche not in svc.niches:
-        return back(view, "nicho_desconhecido")
-    svc.add_asin(niche, asin)
+def watch(svc: Svc, _: Post, view: ViewDep, asin: Asin) -> Response:
+    svc.add_watch(asin)
     return back(view, "salvo")
 
 
 @router.post("/watch/remove")
-def unwatch(svc: Svc, _: Post, view: ViewDep, niche: NicheId, asin: Asin) -> Response:
-    svc.db.remove_watch(niche, asin)
+def unwatch(svc: Svc, _: Post, view: ViewDep, asin: Asin) -> Response:
+    svc.db.remove_watch(asin)
     return back(view, "salvo")
 
 
 @router.post("/manual")
-def manual(svc: Svc, _: Post, view: ViewDep, niche: NicheId, asin: Asin,
+def manual(svc: Svc, _: Post, view: ViewDep, asin: Asin,
            title: Annotated[str, Form(max_length=300)],
            basis: Annotated[str, Form(max_length=20)] = "",
            price: Annotated[str, Form(max_length=20)] = "",
            coupon: Annotated[str, Form(max_length=30)] = "") -> Response:
-    svc.add_manual(niche, asin, title, parse_price(basis), parse_price(price), coupon)
+    svc.add_manual(asin, title, parse_price(basis), parse_price(price), coupon)
     return back(view, "salvo")
 
 
@@ -321,9 +359,7 @@ def coupon(request: Request, pid: int, svc: Svc, _: Post, view: ViewDep,
 def send(request: Request, pid: int, svc: Svc, session: Auth, view: ViewQuery) -> Response:
     res = svc.prepare_send(pid)
     p = res["post"]
-    niche = svc.niches.get(p["niche_id"])
-    p["niche_name"] = niche.name if niche else p["niche_id"]
-    p["target"] = niche.whatsapp_target if niche else ""
+    p["target"] = svc.style.whatsapp_target
     return TEMPLATES.TemplateResponse(request, "send.html",
                                       {"r": res, "p": p, "settings": svc.s, "csrf": session.csrf, "view": view})
 

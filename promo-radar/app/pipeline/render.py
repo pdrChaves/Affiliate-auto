@@ -4,7 +4,7 @@ from __future__ import annotations
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
-from ..config import Niche
+from ..config import Style
 from ..models import Offer
 
 TITLE_MAX = 90
@@ -24,7 +24,7 @@ def truncate_title(title: str, limit: int = TITLE_MAX) -> str:
     return cut.rstrip(" ,;-–") + "…"
 
 
-def render_post(offer: Offer, niche: Niche, headline: str, tz: str, *, show_prices: bool = True) -> str:
+def render_post(offer: Offer, style: Style, headline: str, tz: str, *, show_prices: bool = True) -> str:
     coupon = offer.coupon
     local = offer.fetched_at.astimezone(ZoneInfo(tz))
     lines = ["#publi · link de afiliado Amazon", "", f"*{headline}*", "", truncate_title(offer.title), ""]
@@ -32,7 +32,7 @@ def render_post(offer: Offer, niche: Niche, headline: str, tz: str, *, show_pric
         if offer.basis_cents and offer.basis_cents > offer.price_cents:
             lines.append(f"~De {brl(offer.basis_cents)}~")
         pct = offer.discount_pct
-        lines.append(f"*Por {brl(offer.price_cents)}* {niche.style.emoji_price}"
+        lines.append(f"*Por {brl(offer.price_cents)}* {style.emoji_price}"
                      + (f" (-{pct:.0f}%)" if pct else ""))
     else:
         lines.append("💰 Confira o preço atualizado no link")

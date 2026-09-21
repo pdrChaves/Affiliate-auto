@@ -2,31 +2,61 @@
  {
   "rota": "GET /",
   "concorrencia": 10,
-  "req": 2144,
-  "rps": 267.8,
-  "p50_ms": 34.9,
-  "p95_ms": 65.3,
-  "p99_ms": 84.7,
-  "max_ms": 132.2,
+  "req": 651,
+  "rps": 81.1,
+  "p50_ms": 113.5,
+  "p95_ms": 218.9,
+  "p99_ms": 304.8,
+  "max_ms": 382.2,
   "erros": 0,
   "codes": {
-   "200": 2144
+   "200": 651
   },
   "cenario": "fila, banco 100k (paginada 30)"
  },
  {
   "rota": "GET /?tab=enviados",
   "concorrencia": 10,
-  "req": 1593,
-  "rps": 199.5,
-  "p50_ms": 46.7,
-  "p95_ms": 89.2,
-  "p99_ms": 112.0,
-  "max_ms": 139.4,
+  "req": 714,
+  "rps": 89.0,
+  "p50_ms": 104.8,
+  "p95_ms": 207.8,
+  "p99_ms": 266.5,
+  "max_ms": 307.9,
   "erros": 0,
   "codes": {
-   "200": 1593
+   "200": 714
   },
   "cenario": "enviados, banco 100k (paginada 30)"
+ },
+ {
+  "rota": "GET /?cat=VideoGames",
+  "concorrencia": 10,
+  "req": 655,
+  "rps": 81.7,
+  "p50_ms": 112.8,
+  "p95_ms": 231.1,
+  "p99_ms": 297.8,
+  "max_ms": 383.8,
+  "erros": 0,
+  "codes": {
+   "200": 655
+  },
+  "cenario": "fila filtrada por categoria, banco 100k"
+ },
+ {
+  "rota": "GET /?q=teclado",
+  "concorrencia": 10,
+  "req": 265,
+  "rps": 32.7,
+  "p50_ms": 265.3,
+  "p95_ms": 632.1,
+  "p99_ms": 908.2,
+  "max_ms": 1055.4,
+  "erros": 0,
+  "codes": {
+   "200": 265
+  },
+  "cenario": "fila filtrada por texto, banco 100k"
  }
 ]

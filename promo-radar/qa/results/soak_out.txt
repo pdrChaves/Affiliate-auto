@@ -1,3 +1,47 @@
-{"rota": "GET /", "concorrencia": 4, "req": 26415, "rps": 440.5, "p50_ms": 8.6, "p95_ms": 14.4, "p99_ms": 18.1, "max_ms": 342.7, "erros": 0, "codes": {"200": 26415}, "cenario": "soak misto: fila"}
-{"rota": "GET /posts/2/send", "concorrencia": 4, "req": 45203, "rps": 753.9, "p50_ms": 4.9, "p95_ms": 8.5, "p99_ms": 10.6, "max_ms": 37.9, "erros": 0, "codes": {"200": 45203}, "cenario": "soak misto: envio"}
-{"rota": "POST /collect", "concorrencia": 2, "req": 18441, "rps": 307.5, "p50_ms": 6.0, "p95_ms": 10.0, "p99_ms": 14.7, "max_ms": 54.7, "erros": 0, "codes": {"303": 18441}, "cenario": "soak misto: coleta"}
+[
+ {
+  "rota": "GET /",
+  "concorrencia": 4,
+  "req": 20001,
+  "rps": 333.6,
+  "p50_ms": 11.3,
+  "p95_ms": 19.7,
+  "p99_ms": 25.6,
+  "max_ms": 61.5,
+  "erros": 0,
+  "codes": {
+   "200": 20001
+  },
+  "cenario": "soak misto: fila"
+ },
+ {
+  "rota": "GET /buscar?q=bluetooth&cat=Electronics",
+  "concorrencia": 2,
+  "req": 10965,
+  "rps": 366.0,
+  "p50_ms": 5.0,
+  "p95_ms": 8.6,
+  "p99_ms": 10.9,
+  "max_ms": 43.3,
+  "erros": 0,
+  "codes": {
+   "200": 10965
+  },
+  "cenario": "soak misto: busca ao vivo"
+ },
+ {
+  "rota": "GET /posts/1/send",
+  "concorrencia": 4,
+  "req": 14376,
+  "rps": 479.8,
+  "p50_ms": 7.8,
+  "p95_ms": 13.4,
+  "p99_ms": 16.9,
+  "max_ms": 49.5,
+  "erros": 0,
+  "codes": {
+   "200": 14376
+  },
+  "cenario": "soak misto: envio"
+ }
+]

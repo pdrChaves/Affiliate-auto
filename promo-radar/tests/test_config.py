@@ -1,9 +1,8 @@
-"""Categorias do niches.yaml: a mesma taxonomia da Amazon."""
+"""Configuração única e categorias da Amazon (não existe mais 'nicho')."""
 import pytest
-from pydantic import ValidationError
 
 from app.categories import as_table, categories, display_name, is_valid
-from app.config import SearchSpec, load_niches
+from app.config import Filters, Style, clean_category, load_config
 
 
 def test_brazil_has_only_the_official_indexes():
@@ -18,27 +17,24 @@ def test_unknown_marketplace_skips_validation():
     assert is_valid("QualquerCoisa", "www.amazon.xx")   # sem catálogo → não valida
 
 
-def test_search_spec_rules():
-    SearchSpec(search_index="Electronics", keywords="fone")
-    SearchSpec(search_index="VideoGames", browse_node_id="7791985011")
-    with pytest.raises(ValidationError, match="inválida"):
-        SearchSpec(search_index="Fashion", keywords="tênis")
-    with pytest.raises(ValidationError, match="keywords"):
-        SearchSpec(search_index="Electronics")
-    with pytest.raises(ValidationError, match="browse_node_id exige"):
-        SearchSpec(search_index="All", browse_node_id="123")
+def test_clean_category():
+    assert clean_category("") == "All" and clean_category(None) == "All"
+    assert clean_category("VideoGames") == "VideoGames"
+    with pytest.raises(ValueError, match="inválida"):
+        clean_category("Fashion")
 
 
-def test_niches_file_uses_valid_categories():
-    niches = load_niches("config/niches.yaml", "www.amazon.com.br")
-    assert [n.id for n in niches] == ["eletronicos", "games", "casa"]
-    usados = {s.search_index for n in niches for s in n.searches}
-    assert usados <= set(categories("www.amazon.com.br"))
+def test_config_file_loads_filters_and_style():
+    cfg = load_config("config/config.yaml", "www.amazon.com.br")
+    assert isinstance(cfg.filters, Filters) and isinstance(cfg.style, Style)
+    assert cfg.filters.min_discount_pct >= 1 and cfg.filters.max_price > cfg.filters.min_price
+    assert len(cfg.filters.posting_window) == 2
+    assert cfg.style.headline_fallbacks and cfg.style.emoji_price
 
 
-def test_broken_niches_file_fails_loudly(tmp_path):
-    bad = tmp_path / "n.yaml"
-    bad.write_text("niches:\n  - id: x\n    name: X\n    searches:\n      - {search_index: Toys, keywords: lego}\n",
-                   encoding="utf-8")
-    with pytest.raises(ValidationError, match="Toys"):
-        load_niches(bad, "www.amazon.com.br")
+def test_defaults_when_file_is_minimal(tmp_path):
+    f = tmp_path / "c.yaml"
+    f.write_text("filters:\n  min_discount_pct: 35\n", encoding="utf-8")
+    cfg = load_config(f)
+    assert cfg.filters.min_discount_pct == 35 and cfg.filters.require_buybox is True
+    assert cfg.style.emoji_price == "🔥"

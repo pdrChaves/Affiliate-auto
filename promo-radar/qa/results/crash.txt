@@ -1,2 +1,5 @@
-integrity: ok | posts: 6 | headline: TESTE DE ESCRITA
-restart_s .687574650
+kill -9 durante escrita
+integrity: ok | posts: 2 | headline: TESTE DE ESCRITA
+buscas salvas: ['bluetooth']
+restart_s .698636959
+{"ok":true}

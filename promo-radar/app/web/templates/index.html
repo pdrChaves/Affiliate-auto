@@ -1,45 +1,56 @@
 {% extends "base.html" %}
-{% macro filtros() %}<input type="hidden" name="tab" value="{{tab}}"><input type="hidden" name="niche" value="{{niche}}"><input type="hidden" name="cat" value="{{cat}}"><input type="hidden" name="page" value="{{page}}"><input type="hidden" name="csrf" value="{{csrf}}">{% endmacro %}
+{% macro filtros() %}<input type="hidden" name="tab" value="{{tab}}"><input type="hidden" name="cat" value="{{cat}}"><input type="hidden" name="q" value="{{q}}"><input type="hidden" name="page" value="{{page}}"><input type="hidden" name="csrf" value="{{csrf}}">{% endmacro %}
 {% block body %}
+
+<form class="busca" method="get" action="/buscar">
+  <input name="q" placeholder="Pesquisar na Amazon: teclado, mochila, air fryer…" maxlength="80" autofocus>
+  <select name="cat">
+    <option value="All">Todos os departamentos</option>
+    {% for id, nome in cats.items() %}{% if id != 'All' %}<option value="{{id}}">{{nome}}</option>{% endif %}{% endfor %}
+  </select>
+  <button class="go">Pesquisar</button>
+</form>
+
 <div class="row" style="justify-content:space-between">
-  <nav class="tabs">{% for t in tabs %}<a class="{{ 'on' if t==tab }}" href="/?tab={{t}}{% if niche %}&niche={{niche}}{% endif %}{% if cat %}&cat={{cat}}{% endif %}">{{ t|capitalize }}</a>{% endfor %}</nav>
-  <form method="post" action="/collect" class="row">{{ filtros() }}
-    <select name="niche"><option value="">Todos os nichos</option>{% for n in niches %}<option value="{{n.id}}" {{ 'selected' if n.id==niche }}>{{n.name}}</option>{% endfor %}</select>
-    <button class="go">Coletar agora</button>
-  </form>
+  <nav class="tabs">{% for t in tabs %}<a class="{{ 'on' if t==tab }}" href="/?tab={{t}}{% if cat %}&cat={{cat}}{% endif %}{% if q %}&q={{q}}{% endif %}">{{ t|capitalize }}</a>{% endfor %}</nav>
+  <form method="post" action="/buscas/rodar" class="row">{{ filtros() }}<button class="go">Rodar buscas salvas</button></form>
 </div>
 
 <div class="filtros">
   <div class="fl">
-    <span class="fl-t">Nicho</span>
-    <a class="chip {{ 'on' if not niche }}" href="/?tab={{tab}}{% if cat %}&cat={{cat}}{% endif %}">todos</a>
-    {% for n in niches %}<a class="chip {{ 'on' if n.id==niche }}" href="/?tab={{tab}}&niche={{n.id}}{% if cat %}&cat={{cat}}{% endif %}">{{n.name}}</a>{% endfor %}
+    <span class="fl-t">Categoria na Amazon</span>
+    <a class="chip {{ 'on' if not cat }}" data-cat-todas href="/?tab={{tab}}{% if q %}&q={{q}}{% endif %}">todas ({{ by_cat.values()|sum }})</a>
+    {% for id, nome in cats.items() %}{% if id != 'All' %}
+      <a class="chip {{ 'on' if id==cat }} {{ 'vazia' if not by_cat.get(id) }}" data-cat="{{id}}" data-nome="{{nome}}" href="/?tab={{tab}}&cat={{id}}{% if q %}&q={{q}}{% endif %}">{{nome}} ({{ by_cat.get(id, 0) }})</a>
+    {% endif %}{% endfor %}
+    {% if sem_categoria %}<span class="chip vazia" title="posts manuais ou da watchlist">sem categoria ({{sem_categoria}})</span>{% endif %}
   </div>
   <div class="fl">
-    <span class="fl-t">Categoria na Amazon</span>
-    <a class="chip {{ 'on' if not cat }}" data-cat-todas href="/?tab={{tab}}{% if niche %}&niche={{niche}}{% endif %}">todas ({{ by_cat.values()|sum }})</a>
-    {% for id, nome in cats.items() %}{% if id != 'All' %}
-      <a class="chip {{ 'on' if id==cat }} {{ 'vazia' if not by_cat.get(id) }}" data-cat="{{id}}" data-nome="{{nome}}" href="/?tab={{tab}}{% if niche %}&niche={{niche}}{% endif %}&cat={{id}}">{{nome}} ({{ by_cat.get(id, 0) }})</a>
-    {% endif %}{% endfor %}
-    {% if sem_categoria %}<span class="chip vazia" title="posts manuais ou de watchlist">sem categoria ({{sem_categoria}})</span>{% endif %}
+    <span class="fl-t">Filtrar a fila</span>
+    <form method="get" action="/" class="row" style="gap:6px">
+      <input type="hidden" name="tab" value="{{tab}}"><input type="hidden" name="cat" value="{{cat}}">
+      <input name="q" value="{{q}}" placeholder="texto do post (ex.: teclado)" maxlength="80" size="26">
+      <button>Filtrar</button>
+      {% if q %}<a class="chip on" href="/?tab={{tab}}{% if cat %}&cat={{cat}}{% endif %}">limpar "{{q}}" ✕</a>{% endif %}
+    </form>
   </div>
 </div>
 
 <div id="aviso" class="msg" hidden></div>
 {% if msg %}<div class="msg {{ msg[0] }}">{{ msg[1] }}</div>{% endif %}
 
-{% if not posts %}<p class="meta" style="margin-top:20px">Nada aqui{% if cat %} nesta categoria{% endif %}. {% if tab=='fila' %}Clique em "Coletar agora".{% endif %}</p>{% endif %}
+{% if not posts %}<p class="meta" style="margin-top:20px">Nada aqui{% if cat or q %} com esse filtro{% endif %}. Use a barra de pesquisa acima para achar produtos.</p>{% endif %}
 <div class="grid">
 {% for p in posts %}
 <div class="card" id="post-{{p.id}}" data-id="{{p.id}}">
-  <div class="meta"><b>{{ p.niche_name }}</b> · <span class="cat">{{ p.category_name or '—' }}</span> · #{{p.id}} · <span class="st">{{ p.status }}</span> · nota <span class="sc">{{ p.score }}</span></div>
+  <div class="meta"><b>{{ p.category_name or 'sem categoria' }}</b>{% if p.query %} · busca "{{ p.query }}"{% endif %} · #{{p.id}} · <span class="st">{{ p.status }}</span> · nota <span class="sc">{{ p.score }}</span></div>
   {% if p.offer.image_url %}<img class="thumb" src="{{ p.offer.image_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}
   <div class="bubble">{{ p.text|wa|safe }}</div>
   <div class="meta">Preço checado: <span class="pc">{{ p.price_checked_at|local }}</span>{% if p.stale and tab=='fila' and p.offer.source=='api' %} <span class="warn stale">(será conferido ao enviar)</span>{% endif %}</div>
-  <div class="meta note {{ 'warn' if p.note and ('SUSPEITO' in p.note or 'ocultos' in p.note) }}">{% if p.note %}📝 {{ p.note }}{% endif %}</div>
+  <div class="meta note {{ 'warn' if p.note and ('SUSPEITO' in p.note or 'ocultos' in p.note or 'fora das regras' in p.note) }}">{% if p.note %}📝 {{ p.note }}{% endif %}</div>
   {% if tab=='fila' %}
   <div class="row">
-    <a class="btn go" href="/posts/{{p.id}}/send?tab={{tab}}&niche={{niche}}&cat={{cat}}&page={{page}}">Enviar →</a>
+    <a class="btn go" href="/posts/{{p.id}}/send?tab={{tab}}&cat={{cat}}&q={{q}}&page={{page}}">Enviar →</a>
     {% if p.status=='pending' %}<form method="post" action="/posts/{{p.id}}/approve" class="js">{{ filtros() }}<button>Aprovar p/ depois</button></form>{% endif %}
     {% if p.offer.source=='api' %}<form method="post" action="/posts/{{p.id}}/refresh" class="js">{{ filtros() }}<button>Revalidar preço</button></form>{% endif %}
     <form method="post" action="/posts/{{p.id}}/reject" class="js">{{ filtros() }}<button class="no">Descartar</button></form>
@@ -52,33 +63,44 @@
 {% endfor %}
 </div>
 {% if pages > 1 %}<nav class="pager">
-  {% if page > 1 %}<a class="btn" href="/?tab={{tab}}&niche={{niche}}&cat={{cat}}&page={{page-1}}">← anterior</a>{% endif %}
-  <span class="meta">página {{page}} de {{pages}} · {{total}} posts</span>
-  {% if page < pages %}<a class="btn" href="/?tab={{tab}}&niche={{niche}}&cat={{cat}}&page={{page+1}}">próxima →</a>{% endif %}
+  {% if page > 1 %}<a class="btn" href="/?tab={{tab}}&cat={{cat}}&q={{q}}&page={{page-1}}">← anterior</a>{% endif %}
+  <span class="meta">página {{page}} de {{pages}} · {{total_txt}} posts</span>
+  {% if page < pages %}<a class="btn" href="/?tab={{tab}}&cat={{cat}}&q={{q}}&page={{page+1}}">próxima →</a>{% endif %}
 </nav>{% endif %}
 
-<details><summary>➕ Acompanhar um ASIN (watchlist)</summary>
-<p class="meta">O ASIN fica no painel; a cada coleta o preço é verificado pela API. Útil para produtos que você sabe que entram em promoção.</p>
+<details {{ 'open' if buscas }}><summary>🔁 Buscas salvas ({{ buscas|length }})</summary>
+<p class="meta">Rodam sozinhas a cada {{ settings.catalog_mode and '' }}intervalo configurado e enfileiram o que passa nas regras. Salve uma busca na tela de resultados.</p>
+<table><tr><th>Termo</th><th>Categoria</th><th>Última rodada</th><th>Na fila</th><th></th></tr>
+{% for b in buscas %}<tr>
+  <td>{{ b.keywords }}</td><td>{{ cats.get(b.category, b.category) }}</td>
+  <td>{{ b.last_run_at|local }}</td><td>{{ b.last_queued or 0 }}</td>
+  <td class="row" style="margin:0">
+    <form method="post" action="/buscas/{{b.id}}/toggle">{{ filtros() }}<input type="hidden" name="enabled" value="{{ '0' if b.enabled else '1' }}"><button>{{ 'Pausar' if b.enabled else 'Ativar' }}</button></form>
+    <form method="post" action="/buscas/{{b.id}}/remover">{{ filtros() }}<button class="no">Remover</button></form>
+  </td>
+</tr>{% endfor %}
+</table></details>
+
+<details><summary>👁️ Acompanhar um ASIN (watchlist)</summary>
+<p class="meta">O ASIN fica no painel; a cada rodada o preço é verificado e o produto entra na fila quando a promoção compensa.</p>
 <form method="post" action="/watch" class="row">{{ filtros() }}
-  <select name="niche">{% for n in niches %}<option value="{{n.id}}">{{n.name}}</option>{% endfor %}</select>
   <input name="asin" placeholder="B0XXXXXXXX" required pattern="[A-Za-z0-9]{10}" maxlength="10"><button class="go">Adicionar</button>
 </form>
-{% for nid, lst in watch.items() %}{% if lst %}<div class="meta">{{nid}}: {% for a in lst %}<form method="post" action="/watch/remove" style="display:inline">{{ filtros() }}<input type="hidden" name="niche" value="{{nid}}"><input type="hidden" name="asin" value="{{a}}"><button title="remover">{{a}} ✕</button></form> {% endfor %}</div>{% endif %}{% endfor %}
+{% if watch %}<div class="meta">{% for a in watch %}<form method="post" action="/watch/remove" style="display:inline">{{ filtros() }}<input type="hidden" name="asin" value="{{a}}"><button title="remover">{{a}} ✕</button></form> {% endfor %}</div>{% endif %}
 </details>
 
 <details><summary>✍️ Post manual (sem Creators API)</summary>
-<p class="meta">Para a fase inicial, antes das 10 vendas em 30 dias que liberam a API. Com <code>ALLOW_MANUAL_PRICES=false</code> (padrão) o post sai <b>sem preço</b>, porque a política só autoriza preço vindo da API. O link é gerado automaticamente com a sua tag, então não existe campo de URL.</p>
+<p class="meta">Para a fase inicial, antes das 10 vendas em 30 dias que liberam a API. Com <code>ALLOW_MANUAL_PRICES=false</code> (padrão) o post sai <b>sem preço</b>, porque a política só autoriza preço vindo da API. O link é gerado com a sua tag, então não existe campo de URL.</p>
 <form method="post" action="/manual" class="row">{{ filtros() }}
-  <select name="niche">{% for n in niches %}<option value="{{n.id}}">{{n.name}}</option>{% endfor %}</select>
   <input name="asin" placeholder="ASIN" required pattern="[A-Za-z0-9]{10}" maxlength="10"><input name="title" placeholder="Título do produto (como na Amazon)" required maxlength="300" style="flex:1;min-width:220px">
   <input name="basis" placeholder="De (ex: 599,00)" size="10" maxlength="20"><input name="price" placeholder="Por (ex: 316,00)" size="10" maxlength="20"><input name="coupon" placeholder="Cupom" size="10" maxlength="30">
   <button class="go">Criar</button>
 </form>
 </details>
 
-<details><summary>📊 Últimas coletas</summary>
-<table><tr><th>Quando</th><th>Nicho</th><th>Lidos</th><th>Na fila</th><th>Descartes (motivo: qtd)</th><th>Erro</th></tr>
-{% for r in runs %}<tr><td>{{ r.started_at|local }}</td><td>{{ r.niche_id }}</td><td>{{ r.fetched }}</td><td>{{ r.queued }}</td>
+<details><summary>📊 Últimas buscas</summary>
+<table><tr><th>Quando</th><th>Busca</th><th>Achados</th><th>Na fila</th><th>Descartes (motivo: qtd)</th><th>Erro</th></tr>
+{% for r in runs %}<tr><td>{{ r.started_at|local }}</td><td>{{ r.query }}</td><td>{{ r.fetched }}</td><td>{{ r.queued }}</td>
 <td>{% for k,v in r.rejected.items() %}{{k}}: {{v}}{% if not loop.last %}, {% endif %}{% endfor %}</td><td class="bad">{{ r.error or '' }}</td></tr>{% endfor %}
 </table></details>
 {% endblock %}

@@ -6,7 +6,7 @@ logging.disable(logging.CRITICAL)
 import httpx
 from datetime import timedelta
 from fastapi.testclient import TestClient
-from app.config import Settings, load_niches
+from app.config import Settings, load_config
 from app.db import DB
 from app.amazon.creators import CreatorsClient
 from app.amazon.mock import MockClient
@@ -18,37 +18,37 @@ from app.models import utcnow
 from app.web.server import create_app
 R = []
 def rec(id, nome, ok, det, sev): R.append({"id": id, "teste": nome, "passou": ok, "detalhe": det, "severidade_se_falha": sev})
-NICHES = load_niches(str(QA.parent / "config/niches.yaml"))
+CFG = load_config(str(QA.parent / "config/config.yaml"))
 def settings(**kw):
     return Settings(_env_file=None, amazon_credential_id="i", amazon_credential_secret="s", amazon_rps=1000,
                     panel_password="senha-de-teste-forte-123", **kw)
 def creators(handler):
     return CreatorsClient(settings(), http=httpx.Client(transport=httpx.MockTransport(handler), timeout=2))
 def svc_with(client, db=None):
-    return PromoService(settings(), NICHES, db or DB(":memory:"), client, Copywriter(settings()), NullNotifier())
+    return PromoService(settings(), CFG, db or DB(":memory:"), client, Copywriter(settings()), NullNotifier())
 def tok_ok(req):
     return httpx.Response(200, json={"access_token": "T", "expires_in": 3600}) if req.url.path.endswith("token") else None
 
 # A1 API retornando 500
 def h500(req): return tok_ok(req) or httpx.Response(500)
-s = svc_with(creators(h500)); t=time.perf_counter(); r = s.collect("games"); dt=time.perf_counter()-t
-rec("DISP-01","API da Amazon com erro 500: coleta falha de forma controlada", "error" in r, f"erro registrado, sem derrubar o processo; levou {dt:.1f}s (4 tentativas com backoff)", "alta")
+s = svc_with(creators(h500)); t=time.perf_counter(); r = s.run_search("headset gamer", "VideoGames"); dt=time.perf_counter()-t
+rec("DISP-01","API da Amazon com erro 500: a busca falha de forma controlada", "error" in r, f"erro registrado, sem derrubar o processo; levou {dt:.1f}s (4 tentativas com backoff)", "alta")
 # A2 429 permanente
 def h429(req): return tok_ok(req) or httpx.Response(429)
-s = svc_with(creators(h429)); t=time.perf_counter(); r = s.collect("games"); dt=time.perf_counter()-t
-rec("DISP-02","Throttling (429) permanente", "error" in r, f"desiste após {dt:.1f}s por busca; próxima coleta tenta de novo", "media")
+s = svc_with(creators(h429)); t=time.perf_counter(); r = s.run_search("headset gamer", "VideoGames"); dt=time.perf_counter()-t
+rec("DISP-02","Throttling (429) permanente", "error" in r, f"desiste após {dt:.1f}s por busca; a próxima rodada tenta de novo", "media")
 # A3 timeout
 def hto(req):
     if tok_ok(req): return tok_ok(req)
     raise httpx.ReadTimeout("timeout", request=req)
-s = svc_with(creators(hto)); t=time.perf_counter(); r = s.collect("games"); dt=time.perf_counter()-t
-rec("DISP-03","Timeout da API na coleta", "error" in r and dt > 5, f"capturado após {dt:.1f}s com 4 tentativas e backoff (timeout agora entra no retry)", "media")
+s = svc_with(creators(hto)); t=time.perf_counter(); r = s.run_search("headset gamer", "VideoGames"); dt=time.perf_counter()-t
+rec("DISP-03","Timeout da API na busca", "error" in r and dt > 5, f"capturado após {dt:.1f}s com 4 tentativas e backoff (timeout agora entra no retry)", "media")
 # A4 token endpoint fora
 def htok(req): return httpx.Response(503) if req.url.path.endswith("token") else httpx.Response(200, json={})
-s = svc_with(creators(htok)); r = s.collect("games")
+s = svc_with(creators(htok)); r = s.run_search("headset gamer", "VideoGames")
 rec("DISP-04","Servidor de token (OAuth) fora do ar", "error" in r, r.get("error","")[:90], "media")
 # A5 enviar com API fora -> painel
-good = svc_with(MockClient(settings(), jitter=0)); good.collect("games")
+good = svc_with(MockClient(settings(), jitter=0)); good.run_search("headset gamer", "VideoGames")
 pid = good.db.list_posts(["pending"])[0]["id"]; good.db.update_post(pid, price_checked_at=utcnow()-timedelta(hours=2))
 good.client = creators(h500)
 c = TestClient(create_app(good, with_scheduler=False), raise_server_exceptions=False)
@@ -81,8 +81,8 @@ rec("DISP-09","Telegram fora do ar não afeta o sistema", True, "exceção captu
 # A10 IA fora
 def hai(req): return httpx.Response(529)
 cw = Copywriter(settings(anthropic_api_key="k"), http=httpx.Client(transport=httpx.MockTransport(hai)))
-h = cw.headline(good.db.list_posts(["pending","sent"])[0]["offer"], NICHES[1])
-rec("DISP-10","IA fora do ar: usa chamada de reserva", h in NICHES[1].style.headline_fallbacks, h, "baixa")
+h = cw.headline(good.db.list_posts(["pending","sent"])[0]["offer"], CFG.style)
+rec("DISP-10","IA fora do ar: usa chamada de reserva", h in CFG.style.headline_fallbacks, h, "baixa")
 # A11 corrida: coletas simultâneas
 db = DB(str(QA / "run/race.db"))
 with db._lock: db._conn.execute("DELETE FROM posts"); db._conn.commit()
@@ -90,21 +90,21 @@ class SlowMock(MockClient):
     def search(self, *a, **k):
         time.sleep(0.2); return super().search(*a, **k)
 s = svc_with(SlowMock(settings(), jitter=0), db)
-ths=[threading.Thread(target=s.collect, args=("games",)) for _ in range(5)]
+ths=[threading.Thread(target=s.run_search, args=("bluetooth", "Electronics")) for _ in range(5)]
 [t.start() for t in ths]; [t.join() for t in ths]
-posts = db.list_posts(["pending"], niche_id="games"); asins=[p["asin"] for p in posts]
+posts = db.list_posts(["pending"]); asins=[p["asin"] for p in posts]
 dups = len(asins)-len(set(asins))
-rec("DISP-11","Coletas simultâneas não duplicam posts", dups==0, f"5 coletas paralelas → {len(asins)} posts, {dups} duplicados", "media")
+rec("DISP-11","Buscas simultâneas não duplicam posts", dups==0, f"5 buscas paralelas → {len(asins)} posts, {dups} duplicados", "media")
 # DISP-11b: dois PROCESSOS gravando o mesmo produto (índice único)
 from app.models import Offer
 from app.db import DuplicateActivePostError
 db2 = DB(str(QA / "run/race.db"))
 o = Offer(asin="B0RACE0001", title="t", url="u", price_cents=1)
-db.create_post("games", o, "H", "t", 1)
+db.create_post(o, "H", "t", 1, query="corrida")
 try:
-    db2.create_post("games", o, "H", "t", 1); ok=False
+    db2.create_post(o, "H", "t", 1, query="corrida"); ok=False
 except DuplicateActivePostError:
     ok=True
-rec("DISP-12","Duas conexões/processos não duplicam o mesmo produto", ok, "índice único parcial (niche_id, asin) para posts ativos", "media")
+rec("DISP-12","Duas conexões/processos não duplicam o mesmo produto", ok, "índice único parcial em posts(asin) para posts ativos", "media")
 json.dump(R, open(QA / "results/avail.json","w"), ensure_ascii=False, indent=1)
 for x in R: print("PASS" if x["passou"] else "FAIL", x["id"], x["teste"], "|", x["detalhe"])

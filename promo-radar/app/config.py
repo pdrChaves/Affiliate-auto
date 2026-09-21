@@ -1,11 +1,11 @@
-"""Configuração: variáveis de ambiente (.env) + nichos (YAML)."""
+"""Configuração: variáveis de ambiente (.env) + regras e estilo (config/config.yaml)."""
 from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .categories import as_table, is_valid
@@ -23,7 +23,7 @@ TOKEN_URLS = {
 
 
 MIN_PASSWORD_LEN = 8
-MARKETPLACE = "www.amazon.com.br"   # marketplace usado para validar as categorias do niches.yaml
+MARKETPLACE = "www.amazon.com.br"   # marketplace usado para validar as categorias das buscas
 
 WEAK_PASSWORDS = {"troque-esta-senha", "admin", "password", "12345678", "123456789", "123456789012",
                   "senha123", "senha1234", "admin123", "qwerty123", "promoradar"}
@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"             # só a própria máquina; no Docker o compose define 0.0.0.0
     port: int = 8000
     database_path: str = "data/promo.db"
-    niches_file: str = "config/niches.yaml"
+    config_file: str = "config/config.yaml"
     timezone: str = "America/Sao_Paulo"
 
     def password_problem(self) -> str | None:
@@ -82,62 +82,46 @@ class Settings(BaseSettings):
         return self.amazon_token_url or TOKEN_URLS.get(self.amazon_credential_version, TOKEN_URLS["3.1"])
 
 
-class SearchSpec(BaseModel):
-    """Uma busca dentro de UMA categoria da Amazon (searchIndex), a mesma taxonomia do site.
-
-    Precisa de `keywords` ou `browse_node_id` — a Amazon não devolve resultados só com a categoria.
-    O browse node é o número que aparece em `?node=` na URL da categoria no amazon.com.br e permite
-    descer a subcategorias que o searchIndex não alcança.
-    """
-    keywords: str | None = None
-    search_index: str = "All"
-    browse_node_id: str | None = None
-
-    @model_validator(mode="after")
-    def _check(self) -> SearchSpec:
-        if not is_valid(self.search_index, MARKETPLACE):
-            raise ValueError(f"categoria (search_index) inválida: {self.search_index!r}\n"
-                             f"Categorias válidas em {MARKETPLACE}:\n{as_table(MARKETPLACE)}")
-        if not self.keywords and not self.browse_node_id:
-            raise ValueError("cada busca precisa de 'keywords' ou 'browse_node_id'")
-        if self.browse_node_id and self.search_index == "All":
-            raise ValueError("browse_node_id exige uma categoria específica em search_index (não 'All')")
-        return self
-
-
-class Style(BaseModel):
-    emoji_price: str = "🔥"
-    headline_fallbacks: list[str] = Field(default_factory=lambda: ["OFERTA DO DIA"])
-    tone: str = "direto e honesto"
-
-
-class Niche(BaseModel):
-    id: str
-    name: str
-    whatsapp_target: str = ""
-    enabled: bool = True
-    collect_every_minutes: int = 60
+class Filters(BaseModel):
+    """Regras que decidem se uma oferta encontrada vira post. Valem para todas as buscas."""
     min_discount_pct: float = 20
     min_price: float = 0
     max_price: float = 1_000_000
     require_buybox: bool = True
-    accept_list_price: bool = True   # aceitar 'De' = preço de tabela (LIST_PRICE)? vem com aviso
+    accept_list_price: bool = True
     cooldown_hours: int = 72
     repost_if_drop_pct: float = 5
-    max_posts_per_run: int = 5
-    posting_window: tuple[str, str] = ("08:00", "22:00")
-    searches: list[SearchSpec] = Field(default_factory=list)
-    watchlist: list[str] = Field(default_factory=list)
+    max_posts_per_search: int = 5
+    posting_window: tuple[str, str] = ("08:00", "22:30")
+    saved_search_every_minutes: int = 60
+
+
+class Style(BaseModel):
+    emoji_price: str = "🔥"
+    whatsapp_target: str = ""
+    headline_fallbacks: list[str] = Field(default_factory=lambda: ["ACHADO DO DIA"])
+    tone: str = "direto e honesto"
+
+
+class AppConfig(BaseModel):
+    filters: Filters = Field(default_factory=Filters)
     style: Style = Field(default_factory=Style)
 
 
-def load_niches(path: str | Path, marketplace: str | None = None) -> list[Niche]:
-    """Lê o niches.yaml validando as categorias contra a lista oficial do marketplace."""
+def clean_category(search_index: str | None, marketplace: str = MARKETPLACE) -> str:
+    """Valida a categoria da Amazon (search_index). Vazio = todos os departamentos."""
+    idx = (search_index or "All").strip() or "All"
+    if not is_valid(idx, marketplace):
+        raise ValueError(f"categoria inválida: {idx!r}\nCategorias válidas em {marketplace}:\n{as_table(marketplace)}")
+    return idx
+
+
+def load_config(path: str | Path, marketplace: str | None = None) -> AppConfig:
     global MARKETPLACE
     if marketplace:
         MARKETPLACE = marketplace
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
-    return [Niche(**n) for n in data.get("niches", [])]
+    return AppConfig(**data)
 
 
 @lru_cache

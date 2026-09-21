@@ -16,8 +16,8 @@ class DownClient(MockClient):
 
 
 def _stale_post(svc, hours=2):
-    svc.collect("games")
-    p = svc.db.list_posts(["pending"], niche_id="games")[0]
+    svc.run_search("headset gamer", "VideoGames")
+    p = svc.db.list_posts(["pending"])[0]
     svc.db.update_post(p["id"], price_checked_at=utcnow() - timedelta(hours=hours))
     return p
 
@@ -47,32 +47,51 @@ def test_refresh_with_api_down_raises_controlled(svc):
         svc.refresh(p["id"])
 
 
-def test_collect_with_api_down_logs_error(svc):
+def test_search_with_api_down_is_controlled(svc):
+    import pytest
+
+    from app.service import CatalogUnavailableError
     svc.client = DownClient(svc.s)
-    r = svc.collect("games")
+    with pytest.raises(CatalogUnavailableError):
+        svc.search("teclado")
+    r = svc.run_search("teclado")                      # a busca automática só registra o erro
     assert "error" in r and svc.db.recent_runs(1)[0]["error"]
 
 
 def test_monitor_with_api_down_does_not_raise(svc):
+    svc.s.monitor_sent_enabled = True
     p = _stale_post(svc, hours=0)
     svc.mark_sent(p["id"])
     svc.client = DownClient(svc.s)
     assert svc.monitor_sent() == []
 
 
-def test_concurrent_collects_do_not_duplicate(svc):
+def test_concurrent_searches_do_not_duplicate(svc):
+    """Buscas simultâneas (você clicando + a rodada automática) nunca duplicam um produto na fila."""
     class Slow(MockClient):
         def search(self, *a, **k):
             time.sleep(0.2)
             return super().search(*a, **k)
     svc.client = Slow(svc.s, jitter=0)
-    results = []
-    ths = [threading.Thread(target=lambda: results.append(svc.collect("games"))) for _ in range(5)]
+    ths = [threading.Thread(target=svc.run_search, args=("bluetooth", "Electronics")) for _ in range(5)]
     [t.start() for t in ths]
     [t.join() for t in ths]
-    asins = [p["asin"] for p in svc.db.list_posts(["pending"], niche_id="games")]
-    assert len(asins) == len(set(asins)) == 3
-    assert sum("skipped" in r for r in results) == 4
+    asins = [p["asin"] for p in svc.db.list_posts(["pending"])]
+    assert len(asins) == len(set(asins)) == 2
+
+
+def test_saved_searches_do_not_overlap(svc):
+    class Slow(MockClient):
+        def search(self, *a, **k):
+            time.sleep(0.3)
+            return super().search(*a, **k)
+    svc.client = Slow(svc.s, jitter=0)
+    svc.save_search("bluetooth", "Electronics")
+    saidas = []
+    ths = [threading.Thread(target=lambda: saidas.append(svc.run_saved_searches())) for _ in range(3)]
+    [t.start() for t in ths]
+    [t.join() for t in ths]
+    assert sum(1 for s in saidas if s and "skipped" in s[0]) == 2
 
 
 def test_unique_index_blocks_duplicates_across_processes(svc):
@@ -81,10 +100,9 @@ def test_unique_index_blocks_duplicates_across_processes(svc):
     from app.db import DuplicateActivePostError
     from app.models import Offer
     o = Offer(asin="B0DUPDUP01", title="t", url="u", price_cents=1)
-    svc.db.create_post("games", o, "H", "t", 1)
+    svc.db.create_post(o, "H", "t", 1)
     with pytest.raises(DuplicateActivePostError):
-        svc.db.create_post("games", o, "H", "t", 1)
-    svc.db.create_post("eletronicos", o, "H", "t", 1)          # outro nicho pode
+        svc.db.create_post(o, "H", "t", 1)           # o índice único vale entre processos
 
 
 def test_state_guards(svc):
@@ -108,4 +126,4 @@ def test_housekeeping_deletes_old(svc):
     with svc.db._lock:
         svc.db._conn.execute("UPDATE runs SET started_at=?", ((utcnow() - timedelta(days=40)).isoformat(),))
     res = svc.housekeeping()
-    assert res["posts_apagados"] == 1 and res["coletas_apagadas"] >= 1
+    assert res["posts_apagados"] == 1 and res["buscas_apagadas"] >= 1

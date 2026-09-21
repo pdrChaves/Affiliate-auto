@@ -1,10 +1,10 @@
 import httpx
 
-from app.config import Niche, Settings, Style
+from app.config import Settings, Style
 from app.models import Offer
 from app.pipeline.copywriter import Copywriter, validate_headline
 
-NICHE = Niche(id="n", name="N", style=Style(headline_fallbacks=["A", "B", "C"]))
+STYLE = Style(headline_fallbacks=["A", "B", "C"])
 OFFER = Offer(asin="B000000001", title="T", url="u", price_cents=1)
 
 
@@ -17,8 +17,8 @@ def test_validate_rules():
 
 def test_fallback_rotates():
     c = Copywriter(Settings(_env_file=None))
-    first = c.headline(OFFER, NICHE)
-    second = c.headline(OFFER, NICHE, avoid=[first])
+    first = c.headline(OFFER, STYLE)
+    second = c.headline(OFFER, STYLE, avoid=[first])
     assert first != second
 
 
@@ -29,8 +29,8 @@ def _cw(reply):
 
 
 def test_llm_used_when_valid():
-    assert _cw("Montagem de respeito 🧱").headline(OFFER, NICHE) == "MONTAGEM DE RESPEITO 🧱"
+    assert _cw("Montagem de respeito 🧱").headline(OFFER, STYLE) == "MONTAGEM DE RESPEITO 🧱"
 
 
 def test_llm_rejected_falls_back():
-    assert _cw("SÓ R$ 99 HOJE").headline(OFFER, NICHE) in {"A", "B", "C"}
+    assert _cw("SÓ R$ 99 HOJE").headline(OFFER, STYLE) in {"A", "B", "C"}

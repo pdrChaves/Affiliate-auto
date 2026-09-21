@@ -1,6 +1,6 @@
 // Sem scripts inline: a CSP do painel só permite JS servido pelo próprio painel.
 // As ações de um post são enviadas por fetch e atualizam apenas o card — a página não recarrega
-// e os filtros (aba, nicho, categoria, página) continuam onde estavam.
+// e os filtros (aba, categoria, texto, página) continuam onde estavam.
 
 function aviso(texto, tipo) {
   const el = document.getElementById("aviso");

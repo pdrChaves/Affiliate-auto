@@ -2,7 +2,7 @@
 {% block body %}
 <p><a href="/">← voltar</a></p>
 <div class="card" style="max-width:560px;margin:0 auto">
-  <div class="meta"><b>{{ p.niche_name }}</b> → enviar em: <b>{{ p.target or '(defina whatsapp_target no niches.yaml)' }}</b></div>
+  <div class="meta">Enviar em: <b>{{ p.target or '(defina style.whatsapp_target no config.yaml)' }}</b></div>
   {% if r.ok %}
     {% if r.warning %}<div class="msg warn">⚠️ {{ r.warning }}</div>{% endif %}
     <div class="bubble" id="preview">{{ p.text|wa|safe }}</div>

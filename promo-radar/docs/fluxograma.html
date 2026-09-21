@@ -85,9 +85,9 @@ td em{color:var(--muted);font-style:normal;font-size:12.5px}
 </head><body>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Promo Radar · v1.1 · Amazon → WhatsApp</div>
+  <div class="eyebrow">Promo Radar · v1.3 · Amazon → WhatsApp</div>
   <h1>Fluxo do Promo Radar</h1>
-  <p class="lede">Da coleta de ofertas na Amazon até a mensagem na comunidade. O que está em <b class="a">azul</b> o sistema faz sozinho; o que está em <b class="m">laranja</b> depende de você. O preço é conferido na Amazon no instante do envio, então o post só sai com a promoção ativa.</p>
+  <p class="lede">Da <b>barra de pesquisa</b> até a mensagem na comunidade. Você digita um termo — “teclado”, “mochila” —, vê o resultado já avaliado e escolhe o que entra na fila; uma busca que você salva passa a rodar sozinha. O que está em <b class="a">azul</b> o sistema faz sozinho; o que está em <b class="m">laranja</b> depende de você. O preço é conferido na Amazon no instante do envio, então o post só sai com a promoção ativa.</p>
   <div class="legend">
     <span><i class="sw a"></i>Automático (sistema)</span>
     <span><i class="sw m"></i>Manual (você)</span>
@@ -100,7 +100,7 @@ td em{color:var(--muted);font-style:normal;font-size:12.5px}
 
 <div class="tally">
   <div class="a"><b>9</b><span>etapas automáticas + 3 decisões no caminho principal</span></div>
-  <div class="m"><b>7</b><span>etapas manuais (2 opcionais)</span></div>
+  <div class="m"><b>8</b><span>etapas manuais (2 opcionais)</span></div>
   <div><b>1</b><span>clique seu por post publicado (+ “Já enviei”)</span></div>
 </div>
 
@@ -118,8 +118,8 @@ td em{color:var(--muted);font-style:normal;font-size:12.5px}
 <text x="299" y="63" text-anchor="middle" class="el">inicia</text>
 <polyline points="490,99 490,156" class="edge " marker-end="url(#ar)"/>
 <polyline points="490,214 490,271" class="edge " marker-end="url(#ar)"/>
-<polyline points="263,185 315,185 315,300 335,300" class="edge " marker-end="url(#ar)"/>
-<text x="289" y="178" text-anchor="middle" class="el">dispara</text>
+<polyline points="263,185 322,185 322,300 335,300" class="edge " marker-end="url(#ar)"/>
+<text x="292" y="178" text-anchor="middle" class="el">busca agora</text>
 <polyline points="645,300 720,300" class="edge " marker-end="url(#ar)"/>
 <text x="682" y="293" text-anchor="middle" class="el">consulta</text>
 <polyline points="490,329 490,381" class="edge " marker-end="url(#ar)"/>
@@ -131,7 +131,13 @@ td em{color:var(--muted);font-style:normal;font-size:12.5px}
 <polyline points="590,640 720,640" class="edge " marker-end="url(#ar)"/>
 <text x="655" y="633" text-anchor="middle" class="el">não</text>
 <polyline points="490,669 490,722" class="edge " marker-end="url(#ar)"/>
-<text x="498" y="682" class="el">sim</text>
+<text x="498" y="682" class="el">sim · busca salva</text>
+<polyline points="335,525 219,525 219,600" class="edge " marker-end="url(#ar)"/>
+<text x="227" y="570" class="el">veio da sua pesquisa</text>
+<polyline points="145,678 145,700 380,700 380,722" class="edge " marker-end="url(#ar)"/>
+<text x="153" y="710" class="el">Colocar na fila</text>
+<polyline points="14,640 14,640 14,140 490,140 490,156" class="edge " marker-end="url(#ar)"/>
+<text x="20" y="400" class="el">“Salvar esta busca” → passa a rodar sozinha</text>
 <polyline points="645,760 720,760" class="edge edge-opt" marker-end="url(#ar)"/>
 <text x="682" y="753" text-anchor="middle" class="el">chamada</text>
 <polyline points="490,798 490,851" class="edge " marker-end="url(#ar)"/>
@@ -164,19 +170,19 @@ td em{color:var(--muted);font-style:normal;font-size:12.5px}
 <polyline points="335,1690 263,1690" class="edge edge-opt" marker-end="url(#ar)"/>
 <text x="299" y="1683" text-anchor="middle" class="el">avisa</text>
 <rect x="27" y="41" width="236" height="58" rx="8" class="nd man"/>
-<text x="145" y="66" text-anchor="middle" class="nt">Configura .env e niches.yaml</text>
-<text x="145" y="84" text-anchor="middle" class="ns">senha, tag, nichos · uma vez</text>
+<text x="145" y="66" text-anchor="middle" class="nt">Configura .env e config.yaml</text>
+<text x="145" y="84" text-anchor="middle" class="ns">senha, tag, regras · uma vez</text>
 <rect x="335" y="41" width="310" height="58" rx="8" class="nd auto"/>
 <text x="490" y="66" text-anchor="middle" class="nt">Painel + agendador no ar</text>
 <text x="490" y="84" text-anchor="middle" class="ns">python -m app.cli serve</text>
 <rect x="335" y="156" width="310" height="58" rx="8" class="nd auto"/>
-<text x="490" y="180" text-anchor="middle" class="nt">Agendador dispara a coleta</text>
-<text x="490" y="198" text-anchor="middle" class="ns">a cada 60–90 min, por nicho</text>
+<text x="490" y="180" text-anchor="middle" class="nt">Agendador roda as buscas salvas</text>
+<text x="490" y="198" text-anchor="middle" class="ns">+ a watchlist · a cada 60 min</text>
 <rect x="27" y="156" width="236" height="58" rx="8" class="nd man"/>
-<text x="145" y="180" text-anchor="middle" class="nt">“Coletar agora” ou ASIN</text>
-<text x="145" y="198" text-anchor="middle" class="ns">na watchlist · atalho opcional</text>
+<text x="145" y="180" text-anchor="middle" class="nt">Pesquisa na barra do painel</text>
+<text x="145" y="198" text-anchor="middle" class="ns">ex.: “teclado” · categoria opcional</text>
 <rect x="335" y="271" width="310" height="58" rx="8" class="nd auto"/>
-<text x="490" y="296" text-anchor="middle" class="nt">Busca ofertas e preços</text>
+<text x="490" y="296" text-anchor="middle" class="nt">Consulta a Amazon</text>
 <text x="490" y="314" text-anchor="middle" class="ns">searchItems + getItems (lotes de 10)</text>
 <rect x="720" y="271" width="210" height="58" rx="14" class="nd ext"/>
 <text x="825" y="296" text-anchor="middle" class="nt">Amazon Creators API</text>
@@ -185,7 +191,7 @@ td em{color:var(--muted);font-style:normal;font-size:12.5px}
 <text x="490" y="414" text-anchor="middle" class="nt">API respondeu?</text>
 <rect x="720" y="381" width="210" height="58" rx="8" class="nd stop"/>
 <text x="825" y="406" text-anchor="middle" class="nt">Registra o erro</text>
-<text x="825" y="424" text-anchor="middle" class="ns">tenta na próxima coleta</text>
+<text x="825" y="424" text-anchor="middle" class="ns">tenta na próxima rodada</text>
 <rect x="335" y="487" width="310" height="76" rx="8" class="nd auto"/>
 <text x="490" y="512" text-anchor="middle" class="nt">Valida cada oferta</text>
 <text x="490" y="530" text-anchor="middle" class="ns">estoque · buy box · desconto · “De”</text>
@@ -194,7 +200,11 @@ td em{color:var(--muted);font-style:normal;font-size:12.5px}
 <text x="490" y="644" text-anchor="middle" class="nt">Passou nas regras?</text>
 <rect x="720" y="611" width="210" height="58" rx="8" class="nd stop"/>
 <text x="825" y="636" text-anchor="middle" class="nt">Descarta</text>
-<text x="825" y="654" text-anchor="middle" class="ns">motivo em “Últimas coletas”</text>
+<text x="825" y="654" text-anchor="middle" class="ns">motivo em “Últimas buscas”</text>
+<rect x="14" y="602" width="262" height="76" rx="8" class="nd man"/>
+<text x="145" y="626" text-anchor="middle" class="nt">Você vê o veredito de cada item</text>
+<text x="145" y="644" text-anchor="middle" class="ns">passa nas regras · nota X — ou o motivo</text>
+<text x="145" y="662" text-anchor="middle" class="ns">+ prévia do post · nada é gravado</text>
 <rect x="335" y="722" width="310" height="76" rx="8" class="nd auto"/>
 <text x="490" y="746" text-anchor="middle" class="nt">Escreve o post</text>
 <text x="490" y="764" text-anchor="middle" class="ns">chamada · #publi · De/Por</text>
@@ -213,9 +223,9 @@ td em{color:var(--muted);font-style:normal;font-size:12.5px}
 <text x="145" y="884" text-anchor="middle" class="ns">ASIN + título · link gerado</text>
 <text x="145" y="902" text-anchor="middle" class="ns">preço oculto por padrão</text>
 <rect x="27" y="962" width="236" height="76" rx="8" class="nd man"/>
-<text x="145" y="986" text-anchor="middle" class="nt">Revisa no painel</text>
-<text x="145" y="1004" text-anchor="middle" class="ns">chamada · cupom · aprovar</text>
-<text x="145" y="1022" text-anchor="middle" class="ns">descartar · revalidar</text>
+<text x="145" y="986" text-anchor="middle" class="nt">Revisa no painel, sem recarregar</text>
+<text x="145" y="1004" text-anchor="middle" class="ns">chamada · cupom · aprovar · descartar</text>
+<text x="145" y="1022" text-anchor="middle" class="ns">filtros: categoria + busca por texto</text>
 <rect x="335" y="971" width="310" height="58" rx="8" class="nd auto"/>
 <text x="490" y="996" text-anchor="middle" class="nt">Fila com +24h expira</text>
 <text x="490" y="1014" text-anchor="middle" class="ns">a cada 30 min</text>
@@ -263,12 +273,15 @@ td em{color:var(--muted);font-style:normal;font-size:12.5px}
   <div class="tbl"><table>
     <thead><tr><th>Etapa</th><th>Quem</th><th>Quando</th></tr></thead>
     <tbody>
-      <tr><td>Configurar senha, tag de afiliado, credenciais e nichos</td><td><span class="who m">Você</span></td><td class="when">uma vez</td></tr>
-      <tr><td>Buscar ofertas na Amazon (busca por nicho + watchlist)</td><td><span class="who a">Sistema</span></td><td class="when">60–90 min</td></tr>
-      <tr><td>Validar desconto, estoque, buy box, “De” e repetição</td><td><span class="who a">Sistema</span></td><td class="when">a cada coleta</td></tr>
-      <tr><td>Escrever o post (#publi, De/Por, link, carimbo)</td><td><span class="who a">Sistema</span></td><td class="when">a cada coleta</td></tr>
-      <tr><td>Avisar que há post novo na fila</td><td><span class="who a">Sistema</span></td><td class="when">na janela do nicho</td></tr>
-      <tr><td>Revisar: trocar chamada, cupom, aprovar ou descartar</td><td><span class="who m">Você</span></td><td class="when">quando quiser</td></tr>
+      <tr><td>Configurar senha, tag de afiliado, credenciais e as regras do <code>config.yaml</code></td><td><span class="who m">Você</span></td><td class="when">uma vez</td></tr>
+      <tr><td><b>Pesquisar um termo na barra</b> e escolher o que entra na fila</td><td><span class="who m">Você</span></td><td class="when">quando quiser</td></tr>
+      <tr><td>Avaliar cada oferta da pesquisa e mostrar o veredito + a prévia do post</td><td><span class="who a">Sistema</span></td><td class="when">na hora da pesquisa</td></tr>
+      <tr><td>Rodar as <b>buscas salvas</b> e a watchlist</td><td><span class="who a">Sistema</span></td><td class="when">a cada 60 min</td></tr>
+      <tr><td>Validar desconto, estoque, buy box, “De” e repetição</td><td><span class="who a">Sistema</span></td><td class="when">em toda busca</td></tr>
+      <tr><td>Escrever o post (#publi, De/Por, link, carimbo)</td><td><span class="who a">Sistema</span></td><td class="when">ao entrar na fila</td></tr>
+      <tr><td>Avisar que há post novo na fila</td><td><span class="who a">Sistema</span></td><td class="when">na janela de horário</td></tr>
+      <tr><td>Revisar: trocar chamada, cupom, aprovar ou descartar — sem recarregar a página</td><td><span class="who m">Você</span></td><td class="when">quando quiser</td></tr>
+      <tr><td>Filtrar a fila por categoria da Amazon ou por texto</td><td><span class="who m">Você</span></td><td class="when">quando quiser</td></tr>
       <tr><td>Conferir o preço na Amazon antes de liberar o link</td><td><span class="who a">Sistema</span></td><td class="when">sempre, no clique</td></tr>
       <tr><td>Escolher a comunidade e enviar no WhatsApp</td><td><span class="who m">Você</span></td><td class="when">1 clique por post</td></tr>
       <tr><td>Confirmar “Já enviei”</td><td><span class="who m">Você</span></td><td class="when">após enviar</td></tr>
@@ -278,6 +291,7 @@ td em{color:var(--muted);font-style:normal;font-size:12.5px}
     </tbody>
   </table></div>
   <p class="note"><b>Depois do envio:</b> o acompanhamento da oferta vem desligado (<code>MONITOR_SENT_ENABLED=false</code>). A garantia de que o post é honesto está no passo anterior: a conferência do preço no clique. Para voltar a ser avisado quando a promoção acabar — e apagar a mensagem enquanto o WhatsApp permite, por volta de 2 dias —, ligue essa opção.</p>
+  <p class="note"><b>Pesquisar não grava nada:</b> a tela de resultados é só leitura — ela consulta a Amazon, aplica as regras e mostra o veredito de cada item com a prévia do post. Um registro só nasce quando você clica em <b>Colocar na fila</b>, ou quando uma <b>busca salva</b> roda sozinha e encontra algo que passa em todas as regras.</p>
   <p class="note"><b>Por que o envio não é automático:</b> os Termos do WhatsApp proíbem mensagens automatizadas por contas comuns, e a API oficial só aceita grupos de até 8 pessoas, sem Comunidades. Automatizar esse passo arriscaria banir o número que administra as comunidades.</p>
 </section>
 </div>

@@ -12,10 +12,12 @@ def test_cli_commands(monkeypatch, capsys, svc):
     import app.app_factory
     from app import cli
     monkeypatch.setattr(app.app_factory, "build_service", lambda *a, **k: svc)
-    cli.main(["collect", "games"])
-    assert json.loads(capsys.readouterr().out)["niche"] == "games"
+    cli.main(["buscar", "headset gamer", "VideoGames"])
+    assert json.loads(capsys.readouterr().out)["query"] == "headset gamer"
     cli.main(["preview"])
     assert "#publi" in capsys.readouterr().out
+    cli.main(["salvas"])
+    capsys.readouterr()
     cli.main(["monitor"])
     cli.main(["purge"])
     assert "expurgados" in capsys.readouterr().out
@@ -26,7 +28,7 @@ def test_scheduler_registers_jobs(svc):
     sch = start_scheduler(svc)
     try:
         ids = {j.id for j in sch.get_jobs()}
-        assert {"collect:games", "collect:eletronicos", "expire_queue", "purge_content", "housekeeping"} <= ids
+        assert {"buscas_salvas", "expire_queue", "purge_content", "housekeeping"} <= ids
         assert "monitor_sent" not in ids          # desligado por padrão
         assert sch.running
     finally:

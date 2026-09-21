@@ -10,8 +10,23 @@
     303
    ],
    [
+    "GET",
+    "/buscar",
+    303
+   ],
+   [
     "POST",
-    "/collect",
+    "/buscar/fila",
+    401
+   ],
+   [
+    "POST",
+    "/buscar/salvar",
+    401
+   ],
+   [
+    "POST",
+    "/buscas/rodar",
     401
    ],
    [
@@ -85,7 +100,7 @@
   "id": "SEC-04",
   "teste": "Força bruta é limitada",
   "passou": true,
-  "detalhe": "300 tentativas em 0.5s: 5 avaliadas, 295 bloqueadas (429) a partir da 6ª; senha correta durante o bloqueio → 429",
+  "detalhe": "300 tentativas em 0.6s: 5 avaliadas, 295 bloqueadas (429) a partir da 6ª; senha correta durante o bloqueio → 429",
   "severidade_se_falha": "alta"
  },
  {
@@ -168,8 +183,8 @@
    "post_inexistente_refresh": 404,
    "post_inexistente_headline": 404,
    "post_inexistente_approve": 404,
-   "nicho_inexistente_collect": 400,
-   "nicho_inexistente_manual": 400,
+   "asin_invalido_fila": 400,
+   "termo_curto_salvar": 400,
    "preco_invalido_manual": 400
   },
   "severidade_se_falha": "baixa"
@@ -198,7 +213,7 @@
   "id": "SEC-15",
   "teste": "Open redirect",
   "passou": true,
-  "detalhe": "/?tab=fila",
+  "detalhe": "/?tab=fila&page=1&msg=salvo",
   "severidade_se_falha": "media"
  },
  {

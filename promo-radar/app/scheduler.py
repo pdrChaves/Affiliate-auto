@@ -12,10 +12,8 @@ log = logging.getLogger(__name__)
 
 def start_scheduler(svc: PromoService) -> BackgroundScheduler:
     sch = BackgroundScheduler(timezone=svc.s.timezone, job_defaults={"coalesce": True, "max_instances": 1})
-    for n in svc.niches.values():
-        if n.enabled:
-            sch.add_job(svc.collect, "interval", minutes=n.collect_every_minutes, args=[n.id],
-                        id=f"collect:{n.id}")
+    sch.add_job(svc.run_saved_searches, "interval", minutes=svc.filters.saved_search_every_minutes,
+                id="buscas_salvas")
     if svc.s.monitor_sent_enabled:
         sch.add_job(svc.monitor_sent, "interval", minutes=60, id="monitor_sent")
     sch.add_job(svc.expire_stale_queue, "interval", minutes=30, id="expire_queue")

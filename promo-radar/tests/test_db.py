@@ -31,7 +31,7 @@ def test_migrates_v1_database_with_duplicates(tmp_path):
 
 def test_batch_purge_keeps_only_asin():
     db = DB(":memory:")
-    ids = [db.create_post("games", Offer(asin=f"B0PURGE{i:03d}", title="Produto", url="u", price_cents=100),
+    ids = [db.create_post(Offer(asin=f"B0PURGE{i:03d}", title="Produto", url="u", price_cents=100),
                           "H", "texto", 1) for i in range(50)]
     for i in ids:
         db.update_post(i, status="expired", created_at=utcnow() - timedelta(hours=30))
@@ -62,3 +62,27 @@ def test_check_detects_missing_file(tmp_path):
     path.unlink()
     with pytest.raises(RuntimeError):
         db.check()
+
+
+def test_counts_are_capped_so_the_panel_stays_fast(monkeypatch):
+    """As contagens do rodapé/chips param no teto: o filtro de texto não varre a tabela inteira."""
+    from app import db as dbmod
+    monkeypatch.setattr(dbmod, "COUNT_CAP", 10)
+    db = DB(":memory:")
+    for i in range(25):
+        db.create_post(Offer(asin=f"B0CAP{i:05d}", title="t", url="u", price_cents=100),
+                       "H", "teclado mecânico", 1, query="teclado")
+    assert db.count_posts(["pending"]) == 10                       # 25 posts, conta para em 10
+    assert sum(db.count_by_category(["pending"], termo="teclado").values()) == 10
+    assert len(db.list_posts(["pending"], limit=50)) == 25          # a listagem em si não é afetada
+
+
+def test_category_filter_and_counts():
+    db = DB(":memory:")
+    for i, cat in enumerate(["Electronics", "Electronics", "VideoGames"]):
+        db.create_post(Offer(asin=f"B0CAT{i:05d}", title="t", url="u", price_cents=100),
+                       "H", "texto", 1, query="busca")
+        db.update_post(db.list_posts(["pending"])[0]["id"], category=cat)
+    assert db.count_by_category(["pending"]) == {"Electronics": 2, "VideoGames": 1}
+    assert db.count_posts(["pending"], category="Electronics") == 2
+    assert db.count_by_category(["pending"], termo="inexistente") == {}

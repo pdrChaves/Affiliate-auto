@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block body %}
+<p><a href="/">← voltar para a fila</a></p>
+
+<form class="busca" method="get" action="/buscar">
+  <input name="q" value="{{q}}" placeholder="Pesquisar na Amazon: teclado, mochila, air fryer…" maxlength="80" autofocus>
+  <select name="cat">
+    <option value="All" {{ 'selected' if cat=='All' }}>Todos os departamentos</option>
+    {% for id, nome in cats.items() %}{% if id != 'All' %}<option value="{{id}}" {{ 'selected' if id==cat }}>{{nome}}</option>{% endif %}{% endfor %}
+  </select>
+  <button class="go">Pesquisar</button>
+</form>
+
+{% if erro %}<div class="msg bad">{{ erro }}</div>{% endif %}
+{% if q and not erro %}
+  <div class="row" style="justify-content:space-between;align-items:baseline">
+    <p class="meta">{{ resultados|length }} resultado(s) para <b>"{{q}}"</b> em <b>{{ cats.get(cat, cat) }}</b> · {{ resultados|selectattr('ok')|list|length }} passam nas suas regras</p>
+    <form method="post" action="/buscar/salvar" class="row">
+      <input type="hidden" name="csrf" value="{{csrf}}"><input type="hidden" name="q" value="{{q}}"><input type="hidden" name="cat" value="{{cat}}">
+      <button class="go">Salvar esta busca (roda sozinha)</button>
+    </form>
+  </div>
+{% endif %}
+
+<div class="grid">
+{% for r in resultados %}
+<div class="card {{ 'fora' if not r.ok }}">
+  <div class="meta">
+    {% if r.ok %}<span class="tag ok">passa nas regras · nota {{ r.score }}</span>
+    {% elif r.reason == 'ja_na_fila' %}<span class="tag">já está na fila</span>
+    {% else %}<span class="tag no">{{ r.reason }}</span>{% endif %}
+    · {{ r.offer.asin }}
+  </div>
+  {% if r.offer.image_url %}<img class="thumb" src="{{ r.offer.image_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}
+  <div class="bubble">{{ r.preview|wa|safe }}</div>
+  {% for w in r.warnings %}<div class="meta warn">📝 {{ w }}</div>{% endfor %}
+  <form method="post" action="/buscar/fila" class="row">
+    <input type="hidden" name="csrf" value="{{csrf}}"><input type="hidden" name="asin" value="{{ r.offer.asin }}"><input type="hidden" name="q" value="{{q}}"><input type="hidden" name="cat" value="{{ r.offer.category or cat }}">
+    {% if r.reason == 'ja_na_fila' %}<button class="go" disabled>Já está na fila</button>
+    {% else %}<button class="go">{{ 'Colocar na fila' if r.ok else 'Colocar na fila mesmo assim' }}</button>{% endif %}
+  </form>
+</div>
+{% endfor %}
+</div>
+
+{% if q and not resultados and not erro %}<p class="meta">Nenhum produto encontrado. Tente outras palavras ou outra categoria.</p>{% endif %}
+{% endblock %}

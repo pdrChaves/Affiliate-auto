@@ -25,7 +25,8 @@ def safe(fn):
 
 anon = httpx.Client(base_url=B, timeout=30)
 # 1 autenticação em todas as rotas
-routes = [("GET", "/"), ("POST", "/collect"), ("POST", "/watch"), ("POST", "/watch/remove"), ("POST", "/manual"),
+routes = [("GET", "/"), ("GET", "/buscar"), ("POST", "/buscar/fila"), ("POST", "/buscar/salvar"),
+          ("POST", "/buscas/rodar"), ("POST", "/watch"), ("POST", "/watch/remove"), ("POST", "/manual"),
           ("POST", "/posts/1/approve"), ("POST", "/posts/1/reject"), ("POST", "/posts/1/refresh"),
           ("POST", "/posts/1/headline"), ("POST", "/posts/1/coupon"), ("GET", "/posts/1/send"), ("POST", "/posts/1/sent")]
 res = [(m, p, anon.request(m, p, follow_redirects=False)) for m, p in routes]
@@ -57,11 +58,11 @@ rec("SEC-06", "Cabeçalhos de segurança presentes", logged and not missing,
      "hsts": "ligado só com COOKIE_SECURE=true (HTTPS)"}, "media")
 
 tok = csrf(c)
-a = c.post("/collect", data={"niche": ""}, follow_redirects=False).status_code
-b = c.post("/collect", data={"niche": "", "csrf": "forjado"}, follow_redirects=False).status_code
-o = c.post("/collect", data={"niche": "", "csrf": tok}, headers={"Origin": "https://site-malicioso.com"},
+a = c.post("/buscas/rodar", data={}, follow_redirects=False).status_code
+b = c.post("/buscas/rodar", data={"csrf": "forjado"}, follow_redirects=False).status_code
+o = c.post("/buscas/rodar", data={"csrf": tok}, headers={"Origin": "https://site-malicioso.com"},
            follow_redirects=False).status_code
-legit = c.post("/collect", data={"niche": "", "csrf": tok}, follow_redirects=False).status_code
+legit = c.post("/buscas/rodar", data={"csrf": tok}, follow_redirects=False).status_code
 rec("SEC-07", "CSRF: POST sem token, com token forjado ou de outra origem é recusado",
     a == 403 and b == 403 and o == 403 and legit == 303 and "samesite=strict" in cookie.lower(),
     {"sem_token": a, "token_forjado": b, "origin_malicioso": o, "legitimo": legit,
@@ -70,7 +71,7 @@ rec("SEC-07", "CSRF: POST sem token, com token forjado ou de outra origem é rec
 xs = "<script>alert('xss')</script>"
 xh = '"><img src=x onerror=alert(1)>'
 xt = "</textarea><script>alert(2)</script>"
-c.post("/manual", data={"csrf": tok, "niche": "games", "asin": "B0XSSXSS01", "title": (xs + xt)[:290], "coupon": xh[:30]})
+c.post("/manual", data={"csrf": tok, "asin": "B0XSSXSS01", "title": (xs + xt)[:290], "coupon": xh[:30]})
 page = c.get("/").text
 import re  # noqa: E402
 
@@ -85,37 +86,31 @@ bad_urls = ["https://evil.example/phish?x=amazon.com.br&tag=t-20", "javascript:a
             "https://amazon.com.br.evil.example/?tag=x"]
 leaks = []
 for i, u in enumerate(bad_urls):
-    c.post("/manual", data={"csrf": tok, "niche": "eletronicos", "asin": f"B0URLURL0{i}", "title": "t", "url": u})
-page = c.get("/?niche=eletronicos").text
+    c.post("/manual", data={"csrf": tok, "asin": f"B0URLURL0{i}", "title": "t", "url": u})
+page = c.get("/").text
 leaks = [u for u in ["evil.example", "javascript:"] if u in page]
 rec("SEC-10", "Post manual não aceita link de terceiros", not leaks,
     "campo de URL removido: o link é sempre amazon.com.br/dp/ASIN?tag=SUA_TAG; URLs enviadas foram ignoradas"
     if not leaks else leaks, "alta")
 
-sq = {p: c.get("/", params={"niche": p}).status_code for p in ["' OR '1'='1", "lego' UNION SELECT 1--", "1; DROP TABLE posts;--"]}
-c.post("/watch/remove", data={"csrf": tok, "niche": "x' OR 1=1--", "asin": "x"})
+sq = {p: c.get("/", params={"q": p}).status_code for p in ["' OR '1'='1", "lego' UNION SELECT 1--", "1; DROP TABLE posts;--"]}
+c.post("/watch/remove", data={"csrf": tok, "asin": "x' OR 1=1--"})
 intact = "Enviar" in c.get("/").text
 rec("SEC-11", "SQL injection em parâmetros", intact and all(v == 200 for v in sq.values()), {"status": sq, "banco_intacto": intact}, "critica")
 
 inv = {"post_inexistente_refresh": safe(lambda: c.post("/posts/999999/refresh", data={"csrf": tok})),
        "post_inexistente_headline": safe(lambda: c.post("/posts/999999/headline", data={"csrf": tok, "headline": "x"})),
        "post_inexistente_approve": safe(lambda: c.post("/posts/999999/approve", data={"csrf": tok})),
-       "nicho_inexistente_collect": safe(lambda: c.post("/collect", data={"csrf": tok, "niche": "naoexiste"})),
-       "nicho_inexistente_manual": safe(lambda: c.post("/manual", data={"csrf": tok, "niche": "naoexiste", "asin": "B0ABCDEF12", "title": "t"})),
-       "preco_invalido_manual": safe(lambda: c.post("/manual", data={"csrf": tok, "niche": "games", "asin": "B0ABCDEF12", "title": "t", "price": "abc"}))}
+       "asin_invalido_fila": safe(lambda: c.post("/buscar/fila", data={"csrf": tok, "asin": "abc"})),
+       "termo_curto_salvar": safe(lambda: c.post("/buscar/salvar", data={"csrf": tok, "q": "a"})),
+       "preco_invalido_manual": safe(lambda: c.post("/manual", data={"csrf": tok, "asin": "B0ABCDEF12", "title": "t", "price": "abc"}))}
 err_page = c.post("/posts/999999/refresh", data={"csrf": tok}).text
-# coleta com nicho inexistente volta ao painel com aviso (303) em vez de tela de erro
-nicho_ok = inv.pop("nicho_inexistente_collect") == 303
-aviso = c.post("/collect", data={"csrf": tok, "niche": "naoexiste"}, follow_redirects=False)
-nicho_ok = nicho_ok and "nicho_desconhecido" in aviso.headers.get("location", "")
-inv["nicho_inexistente_collect"] = f"303 + aviso ({nicho_ok})"
-rec("SEC-12", "Entradas inválidas retornam 4xx/aviso (não 500) e sem stack trace",
-    all(400 <= v < 500 for v in inv.values() if isinstance(v, int)) and nicho_ok and "Traceback" not in err_page,
-    inv, "baixa")
+rec("SEC-12", "Entradas inválidas retornam 4xx (não 500) e sem stack trace",
+    all(400 <= v < 500 for v in inv.values()) and "Traceback" not in err_page, inv, "baixa")
 
 big = "A" * (10 * 1024 * 1024)
-r = safe(lambda: c.post("/manual", data={"csrf": tok, "niche": "games", "asin": "B0BIGBIG01", "title": big}))
-r2 = safe(lambda: c.post("/manual", data={"csrf": tok, "niche": "games", "asin": "B0BIGBIG01", "title": "A" * 400}))
+r = safe(lambda: c.post("/manual", data={"csrf": tok, "asin": "B0BIGBIG01", "title": big}))
+r2 = safe(lambda: c.post("/manual", data={"csrf": tok, "asin": "B0BIGBIG01", "title": "A" * 400}))
 rec("SEC-13", "Limite de tamanho de entrada", r == 413 and r2 == 422, {"corpo_10MB": r, "titulo_400_chars": r2}, "media")
 
 r = c.post("/posts/1/reject", data={"csrf": tok, "tab": "fila\r\nSet-Cookie: pwn=1"}, follow_redirects=False)

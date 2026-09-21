@@ -1,12 +1,11 @@
 from datetime import timedelta
 
-from app.config import Niche
+from app.config import Filters
 from app.db import DB
 from app.models import Offer, PostStatus, utcnow
 from app.pipeline.scorer import evaluate
 
-N = Niche(id="n", name="N", min_discount_pct=20, min_price=10, max_price=1000, cooldown_hours=72,
-          repost_if_drop_pct=5)
+N = Filters(min_discount_pct=20, min_price=10, max_price=1000, cooldown_hours=72, repost_if_drop_pct=5)
 
 
 def mk(**kw):
@@ -44,7 +43,7 @@ def test_list_price_and_suspicious_warnings():
 
 def test_cooldown_and_repost_on_drop():
     db = DB(":memory:")
-    pid = db.create_post("n", mk(), "H", "txt", 10)
+    pid = db.create_post(mk(), "H", "txt", 10)
     assert evaluate(mk(), N, db).reason == "ja_na_fila"
     db.update_post(pid, status=PostStatus.SENT, sent_at=utcnow())
     assert evaluate(mk(), N, db).reason == "cooldown"

@@ -1,7 +1,7 @@
 [
  {
   "id": "DISP-01",
-  "teste": "API da Amazon com erro 500: coleta falha de forma controlada",
+  "teste": "API da Amazon com erro 500: a busca falha de forma controlada",
   "passou": true,
   "detalhe": "erro registrado, sem derrubar o processo; levou 7.0s (4 tentativas com backoff)",
   "severidade_se_falha": "alta"
@@ -10,12 +10,12 @@
   "id": "DISP-02",
   "teste": "Throttling (429) permanente",
   "passou": true,
-  "detalhe": "desiste após 7.0s por busca; próxima coleta tenta de novo",
+  "detalhe": "desiste após 7.0s por busca; a próxima rodada tenta de novo",
   "severidade_se_falha": "media"
  },
  {
   "id": "DISP-03",
-  "teste": "Timeout da API na coleta",
+  "teste": "Timeout da API na busca",
   "passou": true,
   "detalhe": "capturado após 7.0s com 4 tentativas e backoff (timeout agora entra no retry)",
   "severidade_se_falha": "media"
@@ -38,7 +38,7 @@
   "id": "DISP-06",
   "teste": "Botão Revalidar com a API fora do ar",
   "passou": true,
-  "detalhe": "HTTP 303 → /?tab=fila&msg=api_off (mensagem 'API indisponível', nada alterado)",
+  "detalhe": "HTTP 303 → /?tab=fila&page=1&msg=api_off (mensagem 'API indisponível', nada alterado)",
   "severidade_se_falha": "media"
  },
  {
@@ -66,21 +66,21 @@
   "id": "DISP-10",
   "teste": "IA fora do ar: usa chamada de reserva",
   "passou": true,
-  "detalhe": "MAIS UM PRA COLEÇÃO",
+  "detalhe": "PREÇO BOM DEMAIS PRA PASSAR",
   "severidade_se_falha": "baixa"
  },
  {
   "id": "DISP-11",
-  "teste": "Coletas simultâneas não duplicam posts",
+  "teste": "Buscas simultâneas não duplicam posts",
   "passou": true,
-  "detalhe": "5 coletas paralelas → 3 posts, 0 duplicados",
+  "detalhe": "5 buscas paralelas → 2 posts, 0 duplicados",
   "severidade_se_falha": "media"
  },
  {
   "id": "DISP-12",
   "teste": "Duas conexões/processos não duplicam o mesmo produto",
   "passou": true,
-  "detalhe": "índice único parcial (niche_id, asin) para posts ativos",
+  "detalhe": "índice único parcial em posts(asin) para posts ativos",
   "severidade_se_falha": "media"
  }
 ]

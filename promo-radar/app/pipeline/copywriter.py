@@ -1,7 +1,7 @@
 """Gera a CHAMADA (headline) do post. O título do produto nunca é reescrito (regra da Amazon).
 
 Com ANTHROPIC_API_KEY: usa IA com instruções rígidas (sem números, sem promessas).
-Sem chave ou se a IA falhar/violar as regras: usa as frases do nicho (config).
+Sem chave ou se a IA falhar/violar as regras: usa as frases de reserva do config.yaml.
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import re
 
 import httpx
 
-from ..config import Niche, Settings
+from ..config import Settings, Style
 from ..models import Offer
 
 log = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ FORBIDDEN = re.compile(r"\d|R\$|%|grátis|gratis|garantid|melhor preço|menor pr
                        re.IGNORECASE)
 MAX_LEN = 42
 
-PROMPT = """Você escreve a CHAMADA (1 linha) de um post de promoção para a comunidade de WhatsApp "{niche}".
+PROMPT = """Você escreve a CHAMADA (1 linha) de um post de promoção para uma comunidade de ofertas no WhatsApp.
 Tom: {tone}.
 Produto: {title}
 Características (fonte: Amazon): {features}
@@ -33,9 +33,9 @@ Regras obrigatórias:
 Exemplos de estilo: "PRA TREINAR NO CONFORTO", "UMA DAS TRADICIONAIS DA F1 EM LEGO 🏎️"."""
 
 
-def fallback_headline(offer: Offer, niche: Niche, avoid: list[str] | None = None) -> str:
-    """Escolhe a frase do nicho menos usada recentemente (evita chamadas repetidas em sequência)."""
-    options = niche.style.headline_fallbacks or ["OFERTA DO DIA"]
+def fallback_headline(offer: Offer, style: Style, avoid: list[str] | None = None) -> str:
+    """Escolhe a frase configurada menos usada recentemente (evita chamadas repetidas em sequência)."""
+    options = style.headline_fallbacks or ["OFERTA DO DIA"]
     avoid = avoid or []
     start = int(hashlib.md5(offer.asin.encode(), usedforsecurity=False).hexdigest(), 16) % len(options)
     ordered = options[start:] + options[:start]
@@ -55,9 +55,9 @@ class Copywriter:
         self.s = settings
         self.http = http or httpx.Client(timeout=20)
 
-    def headline(self, offer: Offer, niche: Niche, avoid: list[str] | None = None) -> str:
+    def headline(self, offer: Offer, style: Style, avoid: list[str] | None = None) -> str:
         if not self.s.anthropic_api_key:
-            return fallback_headline(offer, niche, avoid)
+            return fallback_headline(offer, style, avoid)
         try:
             r = self.http.post(
                 "https://api.anthropic.com/v1/messages",
@@ -65,7 +65,7 @@ class Copywriter:
                          "content-type": "application/json"},
                 json={"model": self.s.anthropic_model, "max_tokens": 60,
                       "messages": [{"role": "user", "content": PROMPT.format(
-                          niche=niche.name, tone=niche.style.tone, title=offer.title,
+                          tone=style.tone, title=offer.title,
                           features="; ".join(offer.features) or "(não informado)", max_len=MAX_LEN)}]},
             )
             r.raise_for_status()
@@ -76,4 +76,4 @@ class Copywriter:
             log.info("Headline da IA rejeitada pelas regras: %r", text)
         except Exception as e:  # IA é opcional: nunca derruba o pipeline
             log.warning("Copywriter IA falhou (%s); usando fallback", e)
-        return fallback_headline(offer, niche, avoid)
+        return fallback_headline(offer, style, avoid)

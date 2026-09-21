@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import timedelta
 
-from ..config import Niche
+from ..config import Filters
 from ..db import DB
 from ..models import Offer, PostStatus, utcnow
 
@@ -27,7 +27,7 @@ class Verdict:
     warnings: list[str] = field(default_factory=list)
 
 
-def _hard_reject(offer: Offer, niche: Niche) -> str | None:
+def _hard_reject(offer: Offer, f: Filters) -> str | None:
     """Regras eliminatórias. Retorna o código do motivo ou None se passou em todas."""
     if offer.price_cents is None:
         return "sem_preco"
@@ -36,11 +36,11 @@ def _hard_reject(offer: Offer, niche: Niche) -> str | None:
     rules: list[tuple[bool, str]] = [
         (not offer.in_stock, "fora_de_estoque"),
         (not offer.condition_new, "nao_novo"),
-        (niche.require_buybox and not offer.is_buybox, "nao_buybox"),
-        (not niche.min_price <= offer.price_cents / 100 <= niche.max_price, "faixa_de_preco"),
+        (f.require_buybox and not offer.is_buybox, "nao_buybox"),
+        (not f.min_price <= offer.price_cents / 100 <= f.max_price, "faixa_de_preco"),
         (not offer.basis_cents or disc is None, "sem_preco_de"),          # o post exige "De x Por"
-        (disc is not None and disc < niche.min_discount_pct, "desconto_baixo"),
-        (btype == "LIST_PRICE" and not niche.accept_list_price, "de_eh_preco_de_tabela"),
+        (disc is not None and disc < f.min_discount_pct, "desconto_baixo"),
+        (btype == "LIST_PRICE" and not f.accept_list_price, "de_eh_preco_de_tabela"),
     ]
     return next((reason for failed, reason in rules if failed), None)
 
@@ -59,32 +59,32 @@ def _score(offer: Offer) -> tuple[float, list[str]]:
     return score, warnings
 
 
-def _repeat_check(offer: Offer, niche: Niche, db: DB) -> tuple[str | None, str | None]:
+def _repeat_check(offer: Offer, f: Filters, db: DB) -> tuple[str | None, str | None]:
     """(motivo de rejeição, aviso). ASIN pode ser guardado sem limite de tempo, então o histórico de envios vale."""
-    last = db.last_post_for(niche.id, offer.asin, [PostStatus.PENDING.value, PostStatus.APPROVED.value,
-                                                   PostStatus.SENT.value, PostStatus.ENDED.value])
+    last = db.last_post_for(offer.asin, [PostStatus.PENDING.value, PostStatus.APPROVED.value,
+                                         PostStatus.SENT.value, PostStatus.ENDED.value])
     if not last:
         return None, None
     if last["status"] in (PostStatus.PENDING.value, PostStatus.APPROVED.value):
         return "ja_na_fila", None
     ref = last["sent_at"] or last["created_at"]
-    if utcnow() - ref >= timedelta(hours=niche.cooldown_hours):
+    if utcnow() - ref >= timedelta(hours=f.cooldown_hours):
         return None, None
     # preço do último envio só existe enquanto não foi expurgado (janela de monitoramento)
     prev = last["price_cents"]
     if prev and offer.price_cents is not None and \
-            offer.price_cents <= prev * (1 - niche.repost_if_drop_pct / 100):
+            offer.price_cents <= prev * (1 - f.repost_if_drop_pct / 100):
         return None, "repost: caiu mais desde o último envio"
     return "cooldown", None
 
 
-def evaluate(offer: Offer, niche: Niche, db: DB, check_repeat: bool = True) -> Verdict:
-    reason = _hard_reject(offer, niche)
+def evaluate(offer: Offer, f: Filters, db: DB, check_repeat: bool = True) -> Verdict:
+    reason = _hard_reject(offer, f)
     if reason:
         return Verdict(False, reason)
     score, warnings = _score(offer)
     if check_repeat:
-        reason, warning = _repeat_check(offer, niche, db)
+        reason, warning = _repeat_check(offer, f, db)
         if reason:
             return Verdict(False, reason)
         if warning:
