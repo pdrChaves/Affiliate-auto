@@ -30,7 +30,7 @@ Para testar o envio de verdade, crie um grupo só seu no WhatsApp e mande o post
 
 Para parar: `Ctrl + C`. Para rodar de novo depois, repita só as duas últimas linhas (ative o `.venv` e rode o `serve`).
 
-Conferir se está tudo íntegro: `pytest -q` (90 testes).
+Conferir se está tudo íntegro: `pytest -q` (92 testes).
 
 ## Com a Amazon de verdade
 
@@ -39,7 +39,9 @@ As credenciais saem do Associates Central → Ferramentas → Creators API. Para
 
 Em `config/config.yaml` ficam as regras (`min_discount_pct`, faixa de preço, janela de horário, de quanto em quanto tempo as buscas salvas rodam) e o estilo do post. É um arquivo só: não existe mais "nicho" — você separa o conteúdo **pesquisando**.
 
-As buscas podem ser feitas dentro de uma **categoria da própria Amazon** (`search_index`) — veja a lista com `python -m app.cli categorias`. No amazon.com.br são 10, e nomes comuns em outros países (`Fashion`, `Toys`…) não existem aqui: para moda, brinquedos (LEGO) e afins, pesquise em **Todos os departamentos** pelo termo.
+Os filtros do painel são os **19 departamentos do menu "Comprar por categoria"** do amazon.com.br, e o departamento de cada produto vem da própria Amazon — não da caixa de seleção da busca. Veja a lista com `python -m app.cli categorias`.
+
+A API aceita só 10 recortes de busca (`searchIndex`). Onde existe equivalente (Livros, Games, Eletrônicos…) a busca usa ele; nos outros (Pet Shop, Roupas, Brinquedos, Beleza, Esportes…) a busca vai em "Todos os departamentos" e o resultado é filtrado pelo departamento do produto. Na prática, você não precisa saber disso: escolhe o departamento na tela e funciona.
 
 Opcionais: `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` (aviso no celular quando entra post novo) e `ANTHROPIC_API_KEY` (chamadas escritas por IA; sem a chave, usa as frases do `config.yaml`).
 
@@ -55,6 +57,6 @@ O painel fica em `http://127.0.0.1:8000`, acessível só desta máquina. Para ab
 ## Testes
 
 ```bash
-pytest -q              # 90 testes
+pytest -q              # 92 testes
 ruff check app tests && mypy app
 ```

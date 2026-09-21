@@ -1,4 +1,4 @@
-# Fluxograma do Promo Radar (v1.3)
+# Fluxograma do Promo Radar (v1.4)
 
 Agora tudo gira em torno da **barra de pesquisa**: você digita um termo ("teclado", "mochila"), vê o resultado já avaliado e escolhe o que entra na fila. Uma busca que você salva passa a rodar sozinha. O preço é conferido na Amazon no instante do envio, então o post só sai enquanto a promoção está ativa. O acompanhamento depois do envio vem desligado.
 
@@ -70,7 +70,7 @@ flowchart TD
 | Escrever o post (#publi, De/Por, link, carimbo) | Sistema | ao entrar na fila |
 | Avisar que há post novo | Sistema | dentro da `posting_window` |
 | Revisar (chamada, cupom, aprovar, descartar) — sem recarregar a página | Você | quando quiser |
-| Filtrar a fila por categoria da Amazon ou por texto | Você | quando quiser |
+| Filtrar a fila pelos 19 departamentos do site ou por texto | Você | quando quiser |
 | Conferir o preço na Amazon antes de liberar o link | Sistema | sempre, no clique |
 | Escolher a comunidade e enviar no WhatsApp | Você | 1 clique por post |
 | Confirmar "Já enviei" | Você | após enviar |
@@ -84,6 +84,6 @@ flowchart TD
 |---|---|
 | Lista fixa de nichos no `niches.yaml`, cada um com suas buscas e filtros | Um `config.yaml` só, com as regras valendo para tudo |
 | O sistema coletava sozinho e você descobria o que ele achou | Você **pesquisa**, vê o resultado avaliado e decide item a item |
-| Categorias inventadas que não existem no amazon.com.br | As 10 categorias oficiais (`search_index`), com `python -m app.cli categorias` |
+| Categorias inventadas que não existem no amazon.com.br | Os **19 departamentos do menu do site**, com o departamento vindo do próprio produto (`browseNodeInfo`) |
 | Nenhuma forma de procurar algo pontual | Barra de pesquisa: "teclado", "mochila", "headset gamer" |
 | Botão "Coletar agora" | "Salvar esta busca" (roda sozinha) + "Rodar buscas salvas" (força a rodada) |

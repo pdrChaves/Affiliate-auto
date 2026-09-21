@@ -5,8 +5,8 @@
 <form class="busca" method="get" action="/buscar">
   <input name="q" value="{{q}}" placeholder="Pesquisar na Amazon: teclado, mochila, air fryer…" maxlength="80" autofocus>
   <select name="cat">
-    <option value="All" {{ 'selected' if cat=='All' }}>Todos os departamentos</option>
-    {% for id, nome in cats.items() %}{% if id != 'All' %}<option value="{{id}}" {{ 'selected' if id==cat }}>{{nome}}</option>{% endif %}{% endfor %}
+    <option value="" {{ 'selected' if not cat }}>Todos os departamentos</option>
+    {% for nome in cats %}<option value="{{nome}}" {{ 'selected' if nome==cat }}>{{nome}}</option>{% endfor %}
   </select>
   <button class="go">Pesquisar</button>
 </form>
@@ -14,7 +14,7 @@
 {% if erro %}<div class="msg bad">{{ erro }}</div>{% endif %}
 {% if q and not erro %}
   <div class="row" style="justify-content:space-between;align-items:baseline">
-    <p class="meta">{{ resultados|length }} resultado(s) para <b>"{{q}}"</b> em <b>{{ cats.get(cat, cat) }}</b> · {{ resultados|selectattr('ok')|list|length }} passam nas suas regras</p>
+    <p class="meta">{{ resultados|length }} resultado(s) para <b>"{{q}}"</b> em <b>{{ cat or 'Todos os departamentos' }}</b> · {{ resultados|selectattr('ok')|list|length }} passam nas suas regras</p>
     <form method="post" action="/buscar/salvar" class="row">
       <input type="hidden" name="csrf" value="{{csrf}}"><input type="hidden" name="q" value="{{q}}"><input type="hidden" name="cat" value="{{cat}}">
       <button class="go">Salvar esta busca (roda sozinha)</button>

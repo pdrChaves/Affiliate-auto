@@ -1,7 +1,7 @@
 # Promo Radar: relatório técnico
 
 Automação de divulgação de promoções da **Amazon** em **comunidades de WhatsApp**
-Data: 21/09/2026 · Versão 1.3 — busca por termo no lugar de nicho (avaliação: `RELATORIO_QA_v3.md`)
+Data: 21/09/2026 · Versão 1.4 — busca por termo + filtros nos 19 departamentos do site (avaliação: `RELATORIO_QA_v3.md`)
 
 ---
 
@@ -120,7 +120,7 @@ Dependências de runtime: 9 pacotes (`requirements.txt`).
 promo-radar/
 ├── app/
 │   ├── config.py            # .env (Settings) + config.yaml (filters + style, validando as categorias)
-│   ├── categories.py        # categorias oficiais (search_index) por marketplace
+│   ├── categories.py        # os 19 departamentos do site + mapa browse node → departamento
 │   ├── models.py            # Offer (snapshot do produto), PostStatus; valores em centavos (int)
 │   ├── db.py                # SQLite: posts, searches (buscas salvas), watchlist, runs; expurgo de conteúdo
 │   ├── service.py           # ORQUESTRAÇÃO: search, queue_asin, run_search, run_saved_searches, prepare_send…
@@ -156,7 +156,7 @@ promo-radar/
 
 | Tabela | Campos principais | Observação |
 |---|---|---|
-| `posts` | id, **asin**, **category** (categoria da Amazon onde o produto foi achado), **query** (o termo que trouxe o produto: a busca, `watchlist` ou `manual`), status, headline, text, price_cents, basis_cents, discount_pct, score, offer_json, price_checked_at, created_at, approved_at, sent_at, ended_at, note, purged | Título, preço e texto são expurgados depois de 24h (não enviados) ou 49h (enviados) |
+| `posts` | id, **asin**, **category** (departamento do site em que a Amazon classificou o produto, vindo de `browseNodeInfo`), **query** (o termo que trouxe o produto: a busca, `watchlist` ou `manual`), status, headline, text, price_cents, basis_cents, discount_pct, score, offer_json, price_checked_at, created_at, approved_at, sent_at, ended_at, note, purged | Título, preço e texto são expurgados depois de 24h (não enviados) ou 49h (enviados) |
 | `searches` | id, keywords, category, enabled, created_at, last_run_at, last_queued | Buscas salvas. `UNIQUE(keywords, category)`: salvar de novo só reativa |
 | `watchlist` | asin, added_at | Só ASIN (pode ficar guardado sem prazo) |
 | `runs` | query, started_at, fetched, queued, rejected_json, error | Log das buscas. Motivos de descarte agregados; nenhum conteúdo de produto |
@@ -322,24 +322,40 @@ style:
   tone: "direto, honesto, fala do uso no dia a dia"
 ```
 
-As buscas acontecem dentro de uma **categoria da Amazon** (`search_index`), a mesma taxonomia do site — o que aparece nos chips do painel corresponde ao que você encontra pesquisando no amazon.com.br. Categoria inválida é recusada com a lista das válidas, em vez de devolver busca vazia em silêncio.
+### Departamentos: por que não são os 10 da API
 
-**As 10 categorias do amazon.com.br** (`python -m app.cli categorias`):
+Existem **duas taxonomias** dentro da mesma loja, e confundi-las foi um erro da v1.3:
 
-| `search_index` | Categoria |
+| | O que é | Onde aparece | Quantos no BR |
+|---|---|---|---|
+| **Departamento** | Onde a Amazon colocou o produto | Menu "Comprar por categoria" do site; **os filtros do painel** | 19 |
+| `searchIndex` | O recorte que a API aceita **para buscar** | Só dentro da chamada `searchItems` | 10 |
+
+O painel usa os **19 departamentos do site**. O departamento de cada produto vem da própria Amazon:
+a API devolve em `browseNodeInfo` a escada de categorias do item, com os nomes já em português, e o
+sistema pega o primeiro que reconhece. **A categoria nunca vem da caixa de seleção da busca** — se
+viesse, pesquisar em "Todos os departamentos" deixaria todo post sem categoria (foi exatamente o bug
+da v1.3).
+
+Na hora de buscar, o departamento escolhido vira um `searchIndex` quando existe equivalente:
+
+| Departamento | Como a busca é feita |
 |---|---|
-| `All` | Todos os departamentos |
-| `Books` | Livros |
-| `Computers` | Computadores e Informática |
-| `Electronics` | Eletrônicos |
-| `HomeAndKitchen` | Casa e Cozinha |
-| `KindleStore` | Loja Kindle |
-| `MobileApps` | Apps e Jogos |
-| `OfficeProducts` | Material para Escritório e Papelaria |
-| `ToolsAndHomeImprovement` | Ferramentas e Materiais de Construção |
-| `VideoGames` | Games |
+| Livros | `searchIndex=Books` |
+| Computadores e Informática | `searchIndex=Computers` |
+| Eletrônicos, TV e Áudio · Celulares e Comunicação | `searchIndex=Electronics` |
+| Casa, Jardim e Limpeza · Cozinha | `searchIndex=HomeAndKitchen` |
+| Ferramentas e Construção | `searchIndex=ToolsAndHomeImprovement` |
+| Games e Consoles | `searchIndex=VideoGames` |
+| Papelaria e Escritório | `searchIndex=OfficeProducts` |
+| **Os outros 9** (Pet Shop, Roupas, Brinquedos, Beleza, Esportes, Bebês, Automotivo, Alimentos, Filmes) | `searchIndex=All` + filtro pelo departamento do produto |
 
-**Atenção:** `Fashion`, `Toys`, `HealthPersonalCare`, `SportsAndOutdoors`, `Beauty` e `PetSupplies` existem em outros países, **não no Brasil**. Para moda, brinquedos (LEGO), suplementos e afins, pesquise em **Todos os departamentos** pelo termo — foi justamente por isso que a barra de pesquisa substituiu a lista fixa de nichos.
+Veja a tabela viva com `python -m app.cli categorias`.
+
+**Um produto cujo departamento não for reconhecido cai em "Outros"** e continua aparecendo no painel,
+com o chip "Outros" surgindo só quando houver algo nele. Preferi isso a fazer o produto sumir do
+filtro. Se algum departamento vier com nome diferente do esperado, o ajuste é uma linha no dicionário
+`APELIDOS` em `app/categories.py`.
 
 ---
 
@@ -355,7 +371,7 @@ As buscas acontecem dentro de uma **categoria da Amazon** (`search_index`), a me
 
 ## 13. Testes e verificação
 
-`pytest -q` → **90 testes, todos passando** (cobertura 93%). A bateria completa de avaliação está em `RELATORIO_QA_v3.md`. Os testes cobrem:
+`pytest -q` → **92 testes, todos passando** (cobertura 93%). A bateria completa de avaliação está em `RELATORIO_QA_v3.md`. Os testes cobrem:
 - formatação (R$ brasileiro, riscado, `#publi` na primeira linha, carimbo, truncagem sem reescrita, link transparente);
 - todas as regras do scorer, incluindo cooldown e repost com queda de preço;
 - **barra de pesquisa**: termo curto recusado, categoria inválida recusada, categoria vazia = todos os departamentos, resultado com aprovados primeiro e motivo nos reprovados, prévia do post, e a garantia de que **buscar não grava nada**;

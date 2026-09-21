@@ -3,10 +3,10 @@
 #  Você pesquisa na barra do painel — ex.: "teclado", "mochila" — e escolhe o
 #  que vai para a fila. Buscas salvas rodam sozinhas de tempos em tempos.
 #
-#  As buscas usam as CATEGORIAS da Amazon. No amazon.com.br são 10:
-#    All · Books · Computers · Electronics · HomeAndKitchen · KindleStore
-#    MobileApps · OfficeProducts · ToolsAndHomeImprovement · VideoGames
-#  Veja com:  python -m app.cli categorias
+#  Os filtros usam os 19 DEPARTAMENTOS do menu "Comprar por categoria" do
+#  amazon.com.br. O departamento de cada produto vem da própria Amazon
+#  (browseNodeInfo), não da caixa de seleção da busca.
+#  Veja a lista com:  python -m app.cli categorias
 # ============================================================================
 
 # Regras para uma oferta virar post (valem para toda busca)

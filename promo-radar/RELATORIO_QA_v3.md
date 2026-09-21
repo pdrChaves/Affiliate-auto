@@ -1,6 +1,6 @@
-# Promo Radar: avaliação da v1.3 (busca por termo no lugar de nicho)
+# Promo Radar: avaliação da v1.3/v1.4 (busca por termo; filtros nos departamentos do site)
 
-Data: 21/09/2026 · Versão testada: **v1.3** · Comparada com: v1.1/v1.2 (`RELATORIO_QA_v2.md`) e v1.0 (`RELATORIO_QA.md`)
+Data: 21/09/2026 · Versão testada: **v1.4** · Comparada com: v1.1/v1.2 (`RELATORIO_QA_v2.md`) e v1.0 (`RELATORIO_QA.md`)
 Ambiente: container Linux, 2 vCPU, 8 GB, Python 3.11, 1 processo uvicorn, catálogo `mock`, gerador de carga na mesma máquina.
 
 ---
@@ -29,8 +29,27 @@ A mudança foi grande: saiu o conceito de "nicho" (lista fixa no `niches.yaml`, 
 | Banco | `posts.niche_id` sai; entram `query` (o termo que trouxe o produto) e a tabela `searches`; a `watchlist` passa a ser única por ASIN; `runs.niche_id` vira `runs.query` | migração automática testada a partir de um banco v1 real, inclusive com duplicatas (`test_db.py`) |
 | Serviço | `collect(nicho)` → `search(termo)` (só lê, não grava), `queue_asin`, `run_search`, `save_search`, `run_saved_searches` | 12 testes novos em `test_service.py` |
 | Painel | rotas `/buscar`, `/buscar/fila`, `/buscar/salvar`, `/buscas/{id}/toggle`, `/buscas/{id}/remover`, `/buscas/rodar` | 18/18 no DAST + 9 testes novos em `test_web.py` |
-| Filtros | chips com as **10 categorias oficiais** do amazon.com.br + campo de texto sobre a fila | `test_category_filter_shows_official_categories`, `test_text_filter_over_the_queue` |
+| Filtros | chips com os **19 departamentos do menu do site** + campo de texto sobre a fila | `test_category_filter_uses_the_site_departments`, `test_text_filter_over_the_queue` |
+| Categoria | vem do produto (`browseNodeInfo`), não da caixa de seleção da busca | `test_department_comes_from_the_browse_nodes`, `test_migrates_old_api_categories_to_site_departments` |
 | Ações no card | trocar chamada, cupom, aprovar, descartar devolvem **JSON** e não recarregam a página | `test_actions_return_json_and_keep_filters` + verificação em navegador real |
+
+---
+
+## 2.1 Defeito encontrado em uso, depois da avaliação
+
+O usuário reportou que os filtros não retornavam nada e que todos os itens apareciam sem categoria.
+A bateria automatizada não pegou porque testava o comportamento **como implementado**, não como
+esperado: o teste enfileirava passando a categoria na mão e conferia que ela voltava.
+
+| | |
+|---|---|
+| **Sintoma** | Selecionar "Livros" e pesquisar não retornava nada; todos os posts sem categoria |
+| **Causa** | `Offer.category` recebia o `searchIndex` **escolhido no filtro da busca**, não o departamento do produto. Pesquisar em "Todos os departamentos" gravava `All` em tudo |
+| **Causa secundária** | O catálogo fictício só tinha 4 departamentos: filtros como Livros e Pet Shop não tinham o que mostrar |
+| **Correção** | A categoria passa a sair de `browseNodeInfo` (a própria Amazon diz onde o produto está, em português); o catálogo mock cobre os 19 departamentos |
+| **Teste que teria pego** | `test_department_comes_from_the_browse_nodes` + `test_category_filter_uses_the_site_departments`, que agora enfileiram **sem** passar categoria e conferem que cada produto caiu no departamento certo |
+
+Lição aplicada aos testes: onde o dado é derivado, o teste não pode fornecê-lo pronto.
 
 ---
 
@@ -38,7 +57,7 @@ A mudança foi grande: saiu o conceito de "nicho" (lista fixa no `niches.yaml`, 
 
 | Métrica | v1.1 | v1.3 |
 |---|---|---|
-| Testes automatizados | 64 | **90** |
+| Testes automatizados | 64 | **92** |
 | Estabilidade | 15/15 | **15/15** execuções verdes seguidas |
 | Tempo da suíte | ~3,5 s | ~5,5 s |
 | Cobertura (linha + branch) | 93% | **93%** |
@@ -191,7 +210,7 @@ Além disso:
 ## 8. Como repetir esta avaliação
 
 ```bash
-pytest -q --cov=app --cov-report=term-missing   # 90 testes, cobertura
+pytest -q --cov=app --cov-report=term-missing   # 92 testes, cobertura
 ruff check . && mypy app && bandit -r app -q    # lint, tipagem, segurança estática
 pip-audit -r requirements.lock                  # vulnerabilidades nas dependências
 radon cc app -a -s && radon mi app -s           # complexidade

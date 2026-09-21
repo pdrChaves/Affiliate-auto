@@ -31,24 +31,24 @@ def tok_ok(req):
 
 # A1 API retornando 500
 def h500(req): return tok_ok(req) or httpx.Response(500)
-s = svc_with(creators(h500)); t=time.perf_counter(); r = s.run_search("headset gamer", "VideoGames"); dt=time.perf_counter()-t
+s = svc_with(creators(h500)); t=time.perf_counter(); r = s.run_search("headset gamer", "Games e Consoles"); dt=time.perf_counter()-t
 rec("DISP-01","API da Amazon com erro 500: a busca falha de forma controlada", "error" in r, f"erro registrado, sem derrubar o processo; levou {dt:.1f}s (4 tentativas com backoff)", "alta")
 # A2 429 permanente
 def h429(req): return tok_ok(req) or httpx.Response(429)
-s = svc_with(creators(h429)); t=time.perf_counter(); r = s.run_search("headset gamer", "VideoGames"); dt=time.perf_counter()-t
+s = svc_with(creators(h429)); t=time.perf_counter(); r = s.run_search("headset gamer", "Games e Consoles"); dt=time.perf_counter()-t
 rec("DISP-02","Throttling (429) permanente", "error" in r, f"desiste após {dt:.1f}s por busca; a próxima rodada tenta de novo", "media")
 # A3 timeout
 def hto(req):
     if tok_ok(req): return tok_ok(req)
     raise httpx.ReadTimeout("timeout", request=req)
-s = svc_with(creators(hto)); t=time.perf_counter(); r = s.run_search("headset gamer", "VideoGames"); dt=time.perf_counter()-t
+s = svc_with(creators(hto)); t=time.perf_counter(); r = s.run_search("headset gamer", "Games e Consoles"); dt=time.perf_counter()-t
 rec("DISP-03","Timeout da API na busca", "error" in r and dt > 5, f"capturado após {dt:.1f}s com 4 tentativas e backoff (timeout agora entra no retry)", "media")
 # A4 token endpoint fora
 def htok(req): return httpx.Response(503) if req.url.path.endswith("token") else httpx.Response(200, json={})
-s = svc_with(creators(htok)); r = s.run_search("headset gamer", "VideoGames")
+s = svc_with(creators(htok)); r = s.run_search("headset gamer", "Games e Consoles")
 rec("DISP-04","Servidor de token (OAuth) fora do ar", "error" in r, r.get("error","")[:90], "media")
 # A5 enviar com API fora -> painel
-good = svc_with(MockClient(settings(), jitter=0)); good.run_search("headset gamer", "VideoGames")
+good = svc_with(MockClient(settings(), jitter=0)); good.run_search("headset gamer", "Games e Consoles")
 pid = good.db.list_posts(["pending"])[0]["id"]; good.db.update_post(pid, price_checked_at=utcnow()-timedelta(hours=2))
 good.client = creators(h500)
 c = TestClient(create_app(good, with_scheduler=False), raise_server_exceptions=False)
@@ -90,7 +90,7 @@ class SlowMock(MockClient):
     def search(self, *a, **k):
         time.sleep(0.2); return super().search(*a, **k)
 s = svc_with(SlowMock(settings(), jitter=0), db)
-ths=[threading.Thread(target=s.run_search, args=("bluetooth", "Electronics")) for _ in range(5)]
+ths=[threading.Thread(target=s.run_search, args=("bluetooth", "Eletrônicos, TV e Áudio")) for _ in range(5)]
 [t.start() for t in ths]; [t.join() for t in ths]
 posts = db.list_posts(["pending"]); asins=[p["asin"] for p in posts]
 dups = len(asins)-len(set(asins))

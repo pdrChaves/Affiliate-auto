@@ -8,9 +8,9 @@ from app.service import InvalidInputError
 
 
 def test_search_returns_evaluated_results(svc):
-    res = svc.search("bluetooth", "Electronics")
+    res = svc.search("bluetooth", "Eletrônicos, TV e Áudio")
     assert res, "a busca deveria achar produtos"
-    assert all(r["offer"].category == "Electronics" for r in res)
+    assert all(r["offer"].category == "Eletrônicos, TV e Áudio" for r in res)
     assert all("#publi" in r["preview"] for r in res)            # já mostra o post que sairia
     assert res[0]["ok"], "os aprovados vêm primeiro"
     assert any(not r["ok"] for r in res)                         # e os reprovados trazem o motivo
@@ -44,23 +44,23 @@ def test_queue_asin_allows_product_outside_the_rules_with_warning(svc):
 
 
 def test_run_search_queues_only_what_passes(svc):
-    res = svc.run_search("bluetooth", "Electronics")
+    res = svc.run_search("bluetooth", "Eletrônicos, TV e Áudio")
     assert res["queued"] == 2
     assert res["rejected"] == {"desconto_baixo": 1, "nao_buybox": 1}
     asins = {p["asin"] for p in svc.db.list_posts(["pending"])}
     assert "B0MOCK0003" not in asins             # desconto baixo
     assert "B0MOCK0006" not in asins             # não é buy box
-    assert svc.run_search("bluetooth", "Electronics")["queued"] == 0   # não repete
+    assert svc.run_search("bluetooth", "Eletrônicos, TV e Áudio")["queued"] == 0   # não repete
 
 
 def test_run_search_respects_limit(svc):
-    res = svc.run_search("bluetooth", "Electronics", limit=1)
+    res = svc.run_search("bluetooth", "Eletrônicos, TV e Áudio", limit=1)
     assert res["queued"] == 1 and res["rejected"].get("excedeu_limite_por_busca")
 
 
 def test_saved_searches_run_in_batch(svc):
-    svc.save_search("fone de ouvido", "Electronics")
-    svc.save_search("headset gamer", "VideoGames")
+    svc.save_search("fone de ouvido", "Eletrônicos, TV e Áudio")
+    svc.save_search("headset gamer", "Games e Consoles")
     resultados = svc.run_saved_searches()
     assert sum(r.get("queued", 0) for r in resultados) >= 2
     assert [b["last_run_at"] is not None for b in svc.db.searches()] == [True, True]
@@ -76,14 +76,14 @@ def test_watchlist_queues_when_price_is_good(svc):
 
 
 def test_headlines_not_repeated_in_a_batch(svc):
-    svc.run_search("bluetooth", "Electronics")
+    svc.run_search("bluetooth", "Eletrônicos, TV e Áudio")
     heads = [p["headline"] for p in svc.db.list_posts(["pending"])]
     assert len(set(heads)) == len(heads)
 
 
 def test_send_always_revalidates_by_default(svc):
     """MAX_PRICE_AGE_MINUTES=0: o preço é conferido no clique, para o post sair com a promoção ativa."""
-    svc.run_search("headset gamer", "VideoGames")
+    svc.run_search("headset gamer", "Games e Consoles")
     p = svc.db.list_posts(["pending"])[0]
     assert svc.is_stale(p)
     svc.client.overrides[p["asin"]] = p["price_cents"] / 100 - 5
@@ -94,7 +94,7 @@ def test_send_always_revalidates_by_default(svc):
 
 
 def test_send_blocked_when_deal_died(svc):
-    svc.run_search("headset gamer", "VideoGames")
+    svc.run_search("headset gamer", "Games e Consoles")
     p = svc.db.list_posts(["pending"])[0]
     svc.client.overrides[p["asin"]] = p["basis_cents"] / 100
     r = svc.prepare_send(p["id"])
@@ -102,7 +102,7 @@ def test_send_blocked_when_deal_died(svc):
 
 
 def test_monitor_is_off_by_default(svc):
-    svc.run_search("headset gamer", "VideoGames")
+    svc.run_search("headset gamer", "Games e Consoles")
     p = svc.db.list_posts(["pending"])[0]
     svc.mark_sent(p["id"])
     svc.client.overrides[p["asin"]] = p["price_cents"] / 100 + 20
@@ -112,7 +112,7 @@ def test_monitor_is_off_by_default(svc):
 
 def test_monitor_flags_ended_promo_when_enabled(svc):
     svc.s.monitor_sent_enabled = True
-    svc.run_search("headset gamer", "VideoGames")
+    svc.run_search("headset gamer", "Games e Consoles")
     p = svc.db.list_posts(["pending"])[0]
     svc.mark_sent(p["id"])
     assert svc.monitor_sent() == []
@@ -123,7 +123,7 @@ def test_monitor_flags_ended_promo_when_enabled(svc):
 
 
 def test_expire_and_purge_24h(svc):
-    svc.run_search("headset gamer", "VideoGames")
+    svc.run_search("headset gamer", "Games e Consoles")
     p = svc.db.list_posts(["pending"])[0]
     svc.db.update_post(p["id"], created_at=utcnow() - timedelta(hours=25))
     assert svc.expire_stale_queue() == 1

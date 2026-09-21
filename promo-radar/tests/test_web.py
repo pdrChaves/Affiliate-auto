@@ -106,8 +106,8 @@ def test_queue_from_search_results(client, svc):
 
 def test_save_search_and_run(client, svc):
     tok = csrf_of(client)
-    client.post("/buscar/salvar", data={"csrf": tok, "q": "bluetooth", "cat": "Electronics"})
-    assert [(b["keywords"], b["category"]) for b in svc.db.searches()] == [("bluetooth", "Electronics")]
+    client.post("/buscar/salvar", data={"csrf": tok, "q": "bluetooth", "cat": "Eletrônicos, TV e Áudio"})
+    assert [(b["keywords"], b["category"]) for b in svc.db.searches()] == [("bluetooth", "Eletrônicos, TV e Áudio")]
     assert "bluetooth" in client.get("/").text                            # aparece em "Buscas salvas"
     client.post("/buscas/rodar", data={"csrf": tok})
     assert svc.db.count_posts(["pending"]) == 2
@@ -119,23 +119,26 @@ def test_save_search_and_run(client, svc):
 
 
 # ---------- fila ----------
-def test_category_filter_shows_official_categories(client, svc):
+def test_category_filter_uses_the_site_departments(client, svc):
+    """Os chips são os 19 departamentos do menu do amazon.com.br, e a categoria vem do PRODUTO."""
     tok = csrf_of(client)
-    for asin, cat in [("B0MOCK0001", "Electronics"), ("B0MOCK0101", "VideoGames"), ("B0MOCK0104", "Computers")]:
-        client.post("/buscar/fila", data={"csrf": tok, "asin": asin, "q": "teste", "cat": cat})
+    for asin in ["B0MOCK0001", "B0MOCK0101", "B0MOCK0104", "B0MOCK0301"]:
+        client.post("/buscar/fila", data={"csrf": tok, "asin": asin, "q": "teste"})
     page = client.get("/").text
-    for nome in ["Eletrônicos", "Games", "Casa e Cozinha", "Computadores e Informática", "Livros"]:
-        assert nome in page
-    assert "Eletrônicos (1)" in page and "Games (1)" in page
-    assert client.get("/?cat=Electronics").text.count('class="card"') == 1
-    assert client.get("/?cat=Books").text.count('class="card"') == 0
-    assert client.get("/?cat=INVENTADA").text.count('class="card"') == 3     # inválida é ignorada
+    for nome in ["Pet Shop", "Roupas, Calçados e Acessórios", "Brinquedos e Jogos", "Livros",
+                 "Bebês", "Automotivo", "Alimentos e Bebidas", "Filmes, Séries e Música"]:
+        assert nome in page, nome                       # os 19 do site, não os 10 da API
+    assert "Eletrônicos, TV e Áudio (1)" in page and "Livros (1)" in page
+    assert client.get("/?cat=Eletrônicos, TV e Áudio").text.count('class="card"') == 1
+    assert client.get("/?cat=Livros").text.count('class="card"') == 1
+    assert client.get("/?cat=Pet Shop").text.count('class="card"') == 0
+    assert client.get("/?cat=INVENTADA").text.count('class="card"') == 4     # inválida é ignorada
 
 
 def test_text_filter_over_the_queue(client, svc):
     tok = csrf_of(client)
     client.post("/buscar/fila", data={"csrf": tok, "asin": "B0MOCK0104", "q": "teclado mecânico",
-                                      "cat": "Computers"})
+                                      "cat": "Computadores e Informática"})
     client.post("/buscar/fila", data={"csrf": tok, "asin": "B0MOCK0001", "q": "fone"})
     assert client.get("/?q=teclado").text.count('class="card"') == 1
     assert client.get("/?q=fone").text.count('class="card"') == 1
@@ -164,11 +167,11 @@ def test_actions_without_js_return_to_same_filters(client, svc):
     client.post("/buscar/fila", data={"csrf": tok, "asin": "B0MOCK0101", "q": "headset"})
     pid = svc.db.list_posts(["pending"])[0]["id"]
     r = client.post(f"/posts/{pid}/approve",
-                    data={"csrf": tok, "tab": "fila", "cat": "VideoGames", "q": "headset", "page": "1"},
+                    data={"csrf": tok, "tab": "fila", "cat": "Games e Consoles", "q": "headset", "page": "1"},
                     follow_redirects=False)
     destino = r.headers["location"]
     assert r.status_code == 303
-    assert "cat=VideoGames" in destino and "q=headset" in destino and "tab=fila" in destino
+    assert "cat=Games+e+Consoles" in destino and "q=headset" in destino and "tab=fila" in destino
 
 
 def test_panel_flow(client, svc):

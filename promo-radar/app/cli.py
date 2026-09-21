@@ -28,9 +28,9 @@ def main(argv: list[str] | None = None) -> None:
         from .categories import as_table
         from .config import get_settings
         mk = get_settings().amazon_marketplace
-        print(f"Categorias (search_index) válidas em {mk}:\n{as_table(mk)}\n"
+        print(f"Departamentos de {mk} (os mesmos do menu do site):\n{as_table(mk)}\n"
               "Use na barra de pesquisa do painel ou no terminal, por exemplo:\n"
-              '  python -m app.cli buscar "teclado mecânico" Computers')
+              '  python -m app.cli buscar "teclado mecânico" "Computadores e Informática"')
         return
     from .app_factory import build_service
     svc = build_service()

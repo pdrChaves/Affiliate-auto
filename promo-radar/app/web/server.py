@@ -19,7 +19,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from ..app_factory import build_service
-from ..categories import categories, display_name
+from ..categories import OUTROS, is_valid, names
 from ..db import COUNT_CAP
 from ..models import PostStatus
 from ..pipeline.render import brl
@@ -145,7 +145,7 @@ def card(svc: PromoService, post_id: int) -> dict:  # noqa: D401
         "price_checked": local_time(p["price_checked_at"], svc.s.timezone),
         "stale": svc.is_stale(p), "removed": p["status"] not in TABS["fila"],
         "query": p["query"] or "",
-        "score": p["score"], "category": display_name(p["category"] or "", svc.s.amazon_marketplace),
+        "score": p["score"], "category": p["category"] or "",
         "status_pt": STATUS_PT.get(p["status"], p["status"]),
     }
 
@@ -222,10 +222,12 @@ def health(request: Request) -> JSONResponse:
 def index(request: Request, svc: Svc, session: Auth, tab: str = "fila", cat: str = "", q: str = "",
           page: int = 1, msg: str = "") -> Response:
     tab = tab if tab in TABS else "fila"
-    cats = categories(svc.s.amazon_marketplace)          # categorias oficiais do marketplace
-    cat_id = cat if cat in cats else None
+    cats = names(svc.s.amazon_marketplace)               # os 19 departamentos do site
+    cat_id = cat if is_valid(cat, svc.s.amazon_marketplace) and cat else None
     termo = " ".join(q.split())[:80] or None             # filtro de texto sobre a fila
     by_cat = svc.db.count_by_category(TABS[tab], termo=termo)
+    if by_cat.get(OUTROS):          # só mostra "Outros" quando algo caiu lá
+        cats = [*cats, OUTROS]
     # o total sai da mesma contagem dos chips: com o filtro de texto, uma varredura no lugar de duas
     total = by_cat.get(cat_id, 0) if cat_id else sum(by_cat.values())
     pages = max(1, math.ceil(total / PAGE_SIZE))
@@ -234,7 +236,7 @@ def index(request: Request, svc: Svc, session: Auth, tab: str = "fila", cat: str
                               category=cat_id, termo=termo)
     for p in posts:
         p["stale"] = svc.is_stale(p)
-        p["category_name"] = display_name(p["category"] or "", svc.s.amazon_marketplace)
+        p["category_name"] = p["category"] or ""
     view = View(tab=tab, cat=cat_id or "", q=termo or "", page=page)
     tabs = [t for t in TABS if t != "encerrados" or svc.s.monitor_sent_enabled]
     return TEMPLATES.TemplateResponse(request, "index.html", {
@@ -251,8 +253,8 @@ def index(request: Request, svc: Svc, session: Auth, tab: str = "fila", cat: str
 def buscar(request: Request, svc: Svc, session: Auth, q: str = "", cat: str = "") -> Response:
     """Pesquisa na Amazon e mostra os resultados para você escolher o que vai para a fila."""
     termo = " ".join(q.split())[:80]
-    cats = categories(svc.s.amazon_marketplace)
-    categoria = cat if cat in cats else "All"
+    cats = names(svc.s.amazon_marketplace)
+    categoria = cat if is_valid(cat, svc.s.amazon_marketplace) and cat else ""
     resultados, erro = [], None
     if termo:
         try:

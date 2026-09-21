@@ -6,7 +6,7 @@
   <input name="q" placeholder="Pesquisar na Amazon: teclado, mochila, air fryer…" maxlength="80" autofocus>
   <select name="cat">
     <option value="All">Todos os departamentos</option>
-    {% for id, nome in cats.items() %}{% if id != 'All' %}<option value="{{id}}">{{nome}}</option>{% endif %}{% endfor %}
+    {% for nome in cats %}<option value="{{nome}}">{{nome}}</option>{% endfor %}
   </select>
   <button class="go">Pesquisar</button>
 </form>
@@ -20,9 +20,9 @@
   <div class="fl">
     <span class="fl-t">Categoria na Amazon</span>
     <a class="chip {{ 'on' if not cat }}" data-cat-todas href="/?tab={{tab}}{% if q %}&q={{q}}{% endif %}">todas ({{ by_cat.values()|sum }})</a>
-    {% for id, nome in cats.items() %}{% if id != 'All' %}
-      <a class="chip {{ 'on' if id==cat }} {{ 'vazia' if not by_cat.get(id) }}" data-cat="{{id}}" data-nome="{{nome}}" href="/?tab={{tab}}&cat={{id}}{% if q %}&q={{q}}{% endif %}">{{nome}} ({{ by_cat.get(id, 0) }})</a>
-    {% endif %}{% endfor %}
+    {% for nome in cats %}
+      <a class="chip {{ 'on' if nome==cat }} {{ 'vazia' if not by_cat.get(nome) }}" data-cat="{{nome}}" data-nome="{{nome}}" href="/?tab={{tab}}&cat={{nome|urlencode}}{% if q %}&q={{q}}{% endif %}">{{nome}} ({{ by_cat.get(nome, 0) }})</a>
+    {% endfor %}
     {% if sem_categoria %}<span class="chip vazia" title="posts manuais ou da watchlist">sem categoria ({{sem_categoria}})</span>{% endif %}
   </div>
   <div class="fl">
@@ -72,7 +72,7 @@
 <p class="meta">Rodam sozinhas a cada {{ settings.catalog_mode and '' }}intervalo configurado e enfileiram o que passa nas regras. Salve uma busca na tela de resultados.</p>
 <table><tr><th>Termo</th><th>Categoria</th><th>Última rodada</th><th>Na fila</th><th></th></tr>
 {% for b in buscas %}<tr>
-  <td>{{ b.keywords }}</td><td>{{ cats.get(b.category, b.category) }}</td>
+  <td>{{ b.keywords }}</td><td>{{ b.category or 'Todos os departamentos' }}</td>
   <td>{{ b.last_run_at|local }}</td><td>{{ b.last_queued or 0 }}</td>
   <td class="row" style="margin:0">
     <form method="post" action="/buscas/{{b.id}}/toggle">{{ filtros() }}<input type="hidden" name="enabled" value="{{ '0' if b.enabled else '1' }}"><button>{{ 'Pausar' if b.enabled else 'Ativar' }}</button></form>

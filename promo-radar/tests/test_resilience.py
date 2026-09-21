@@ -16,7 +16,7 @@ class DownClient(MockClient):
 
 
 def _stale_post(svc, hours=2):
-    svc.run_search("headset gamer", "VideoGames")
+    svc.run_search("headset gamer", "Games e Consoles")
     p = svc.db.list_posts(["pending"])[0]
     svc.db.update_post(p["id"], price_checked_at=utcnow() - timedelta(hours=hours))
     return p
@@ -73,7 +73,7 @@ def test_concurrent_searches_do_not_duplicate(svc):
             time.sleep(0.2)
             return super().search(*a, **k)
     svc.client = Slow(svc.s, jitter=0)
-    ths = [threading.Thread(target=svc.run_search, args=("bluetooth", "Electronics")) for _ in range(5)]
+    ths = [threading.Thread(target=svc.run_search, args=("bluetooth", "Eletrônicos, TV e Áudio")) for _ in range(5)]
     [t.start() for t in ths]
     [t.join() for t in ths]
     asins = [p["asin"] for p in svc.db.list_posts(["pending"])]
@@ -86,7 +86,7 @@ def test_saved_searches_do_not_overlap(svc):
             time.sleep(0.3)
             return super().search(*a, **k)
     svc.client = Slow(svc.s, jitter=0)
-    svc.save_search("bluetooth", "Electronics")
+    svc.save_search("bluetooth", "Eletrônicos, TV e Áudio")
     saidas = []
     ths = [threading.Thread(target=lambda: saidas.append(svc.run_saved_searches())) for _ in range(3)]
     [t.start() for t in ths]

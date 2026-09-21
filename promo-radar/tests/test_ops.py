@@ -12,7 +12,7 @@ def test_cli_commands(monkeypatch, capsys, svc):
     import app.app_factory
     from app import cli
     monkeypatch.setattr(app.app_factory, "build_service", lambda *a, **k: svc)
-    cli.main(["buscar", "headset gamer", "VideoGames"])
+    cli.main(["buscar", "headset gamer", "Games e Consoles"])
     assert json.loads(capsys.readouterr().out)["query"] == "headset gamer"
     cli.main(["preview"])
     assert "#publi" in capsys.readouterr().out
@@ -117,7 +117,7 @@ def test_search_payload_and_pagination():
         bodies.append(json.loads(req.content))
         items = [dict(ITEM, asin=f"B0SRCH{i:04d}") for i in range(10 if len(bodies) == 1 else 3)]
         return httpx.Response(200, json={"searchResult": {"items": items}})
-    out = _client(h).search("headset gamer", "VideoGames", browse_node_id="123", min_saving_pct=20, min_price_cents=5000,
+    out = _client(h).search("headset gamer", "Games e Consoles", browse_node_id="123", min_saving_pct=20, min_price_cents=5000,
                             max_price_cents=90000, pages=3)
     assert len(out) == 13 and len(bodies) == 2           # parou quando a página veio incompleta
     b = bodies[0]
@@ -129,4 +129,4 @@ def test_cli_categorias(capsys):
     from app import cli
     cli.main(["categorias"])
     out = capsys.readouterr().out
-    assert "Electronics" in out and "VideoGames" in out and "Fashion" not in out
+    assert "Eletrônicos, TV e Áudio" in out and "Games e Consoles" in out and "Fashion" not in out

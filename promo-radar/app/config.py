@@ -108,12 +108,14 @@ class AppConfig(BaseModel):
     style: Style = Field(default_factory=Style)
 
 
-def clean_category(search_index: str | None, marketplace: str = MARKETPLACE) -> str:
-    """Valida a categoria da Amazon (search_index). Vazio = todos os departamentos."""
-    idx = (search_index or "All").strip() or "All"
-    if not is_valid(idx, marketplace):
-        raise ValueError(f"categoria inválida: {idx!r}\nCategorias válidas em {marketplace}:\n{as_table(marketplace)}")
-    return idx
+def clean_category(departamento: str | None, marketplace: str = MARKETPLACE) -> str:
+    """Valida o departamento da Amazon. Vazio = todos os departamentos (devolve "")."""
+    dep = (departamento or "").strip()
+    if not dep or dep == "All":            # "All" era o nome antigo; hoje vazio = tudo
+        return ""
+    if not is_valid(dep, marketplace):
+        raise ValueError(f"categoria inválida: {dep!r}\nDepartamentos em {marketplace}:\n{as_table(marketplace)}")
+    return dep
 
 
 def load_config(path: str | Path, marketplace: str | None = None) -> AppConfig:

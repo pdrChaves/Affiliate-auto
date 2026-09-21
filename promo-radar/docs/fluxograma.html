@@ -85,7 +85,7 @@ td em{color:var(--muted);font-style:normal;font-size:12.5px}
 </head><body>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Promo Radar · v1.3 · Amazon → WhatsApp</div>
+  <div class="eyebrow">Promo Radar · v1.4 · Amazon → WhatsApp</div>
   <h1>Fluxo do Promo Radar</h1>
   <p class="lede">Da <b>barra de pesquisa</b> até a mensagem na comunidade. Você digita um termo — “teclado”, “mochila” —, vê o resultado já avaliado e escolhe o que entra na fila; uma busca que você salva passa a rodar sozinha. O que está em <b class="a">azul</b> o sistema faz sozinho; o que está em <b class="m">laranja</b> depende de você. O preço é conferido na Amazon no instante do envio, então o post só sai com a promoção ativa.</p>
   <div class="legend">
@@ -180,7 +180,7 @@ td em{color:var(--muted);font-style:normal;font-size:12.5px}
 <text x="490" y="198" text-anchor="middle" class="ns">+ a watchlist · a cada 60 min</text>
 <rect x="27" y="156" width="236" height="58" rx="8" class="nd man"/>
 <text x="145" y="180" text-anchor="middle" class="nt">Pesquisa na barra do painel</text>
-<text x="145" y="198" text-anchor="middle" class="ns">ex.: “teclado” · categoria opcional</text>
+<text x="145" y="198" text-anchor="middle" class="ns">ex.: “teclado” · departamento opcional</text>
 <rect x="335" y="271" width="310" height="58" rx="8" class="nd auto"/>
 <text x="490" y="296" text-anchor="middle" class="nt">Consulta a Amazon</text>
 <text x="490" y="314" text-anchor="middle" class="ns">searchItems + getItems (lotes de 10)</text>
@@ -207,7 +207,7 @@ td em{color:var(--muted);font-style:normal;font-size:12.5px}
 <text x="145" y="662" text-anchor="middle" class="ns">+ prévia do post · nada é gravado</text>
 <rect x="335" y="722" width="310" height="76" rx="8" class="nd auto"/>
 <text x="490" y="746" text-anchor="middle" class="nt">Escreve o post</text>
-<text x="490" y="764" text-anchor="middle" class="ns">chamada · #publi · De/Por</text>
+<text x="490" y="764" text-anchor="middle" class="ns">chamada · #publi · De/Por · departamento</text>
 <text x="490" y="782" text-anchor="middle" class="ns">link com sua tag · carimbo de horário</text>
 <rect x="720" y="731" width="210" height="58" rx="14" class="nd ext"/>
 <text x="825" y="756" text-anchor="middle" class="nt">Claude API</text>
@@ -225,7 +225,7 @@ td em{color:var(--muted);font-style:normal;font-size:12.5px}
 <rect x="27" y="962" width="236" height="76" rx="8" class="nd man"/>
 <text x="145" y="986" text-anchor="middle" class="nt">Revisa no painel, sem recarregar</text>
 <text x="145" y="1004" text-anchor="middle" class="ns">chamada · cupom · aprovar · descartar</text>
-<text x="145" y="1022" text-anchor="middle" class="ns">filtros: categoria + busca por texto</text>
+<text x="145" y="1022" text-anchor="middle" class="ns">filtros: 19 departamentos + busca por texto</text>
 <rect x="335" y="971" width="310" height="58" rx="8" class="nd auto"/>
 <text x="490" y="996" text-anchor="middle" class="nt">Fila com +24h expira</text>
 <text x="490" y="1014" text-anchor="middle" class="ns">a cada 30 min</text>
@@ -281,7 +281,7 @@ td em{color:var(--muted);font-style:normal;font-size:12.5px}
       <tr><td>Escrever o post (#publi, De/Por, link, carimbo)</td><td><span class="who a">Sistema</span></td><td class="when">ao entrar na fila</td></tr>
       <tr><td>Avisar que há post novo na fila</td><td><span class="who a">Sistema</span></td><td class="when">na janela de horário</td></tr>
       <tr><td>Revisar: trocar chamada, cupom, aprovar ou descartar — sem recarregar a página</td><td><span class="who m">Você</span></td><td class="when">quando quiser</td></tr>
-      <tr><td>Filtrar a fila por categoria da Amazon ou por texto</td><td><span class="who m">Você</span></td><td class="when">quando quiser</td></tr>
+      <tr><td>Filtrar a fila pelos 19 departamentos do site ou por texto</td><td><span class="who m">Você</span></td><td class="when">quando quiser</td></tr>
       <tr><td>Conferir o preço na Amazon antes de liberar o link</td><td><span class="who a">Sistema</span></td><td class="when">sempre, no clique</td></tr>
       <tr><td>Escolher a comunidade e enviar no WhatsApp</td><td><span class="who m">Você</span></td><td class="when">1 clique por post</td></tr>
       <tr><td>Confirmar “Já enviei”</td><td><span class="who m">Você</span></td><td class="when">após enviar</td></tr>

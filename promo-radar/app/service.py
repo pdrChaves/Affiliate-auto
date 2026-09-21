@@ -14,6 +14,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from .amazon.base import affiliate_link
+from .categories import search_index
 from .config import AppConfig, Settings, clean_category
 from .db import DB, DuplicateActivePostError
 from .models import Offer, PostStatus, utcnow
@@ -114,11 +115,15 @@ class PromoService:
         Cada item vem com o veredito das regras (`ok`, motivo, nota, avisos) e com o texto que o post
         teria, para você decidir o que entra na fila."""
         term = self.clean_term(term)
-        cat = self.clean_category(category)
+        dep = self.clean_category(category)
         f = self.filters
+        # O departamento escolhido nem sempre existe como searchIndex na API (Pet Shop, Roupas,
+        # Brinquedos...). Nesses casos a busca vai em "All" e o resultado é filtrado abaixo pelo
+        # departamento que a própria Amazon atribuiu ao produto.
+        indice = search_index(dep, self.s.amazon_marketplace) if dep else "All"
         try:
             offers = self.client.search(
-                keywords=term, search_index=cat, browse_node_id=None,
+                keywords=term, search_index=indice, browse_node_id=None,
                 min_saving_pct=None, min_price_cents=int(f.min_price * 100),
                 max_price_cents=int(f.max_price * 100), pages=pages)
         except Exception as e:
@@ -126,7 +131,9 @@ class PromoService:
             raise CatalogUnavailableError(str(e)) from e
         resultados = []
         for o in offers:
-            o.category = cat
+            # A categoria é a do PRODUTO (veio de browseNodeInfo), nunca a do filtro escolhido.
+            if dep and o.category != dep:
+                continue
             v = evaluate(o, f, self.db)
             resultados.append({"offer": o, "ok": v.ok, "reason": v.reason, "score": v.score,
                                "warnings": v.warnings, "preview": self._render(o, self.copy.headline(o, self.style))})
@@ -151,7 +158,7 @@ class PromoService:
         if not fresh:
             raise InvalidInputError("produto não encontrado na Amazon")
         o = fresh[0]
-        if category:
+        if category and not o.category:      # só preenche quando a API não disse o departamento
             o.category = self.clean_category(category)
         v = evaluate(o, self.filters, self.db)
         if not v.ok and v.reason == "ja_na_fila":

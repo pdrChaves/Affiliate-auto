@@ -86,6 +86,15 @@ UNIQUE_ACTIVE = """CREATE UNIQUE INDEX IF NOT EXISTS ux_posts_active ON posts(as
 # mostra "5000+". Não afeta a listagem em si, que já é paginada e sai do índice.
 COUNT_CAP = 5000
 
+# Categorias gravadas pelas versões que usavam o searchIndex da API → departamento do site.
+SEARCH_INDEX_ANTIGO = {
+    "All": "", "Books": "Livros", "Computers": "Computadores e Informática",
+    "Electronics": "Eletrônicos, TV e Áudio", "HomeAndKitchen": "Casa, Jardim e Limpeza",
+    "KindleStore": "Livros", "MobileApps": "Games e Consoles",
+    "OfficeProducts": "Papelaria e Escritório", "ToolsAndHomeImprovement": "Ferramentas e Construção",
+    "VideoGames": "Games e Consoles",
+}
+
 # Colunas que update_post aceita (evita montar SQL com nomes arbitrários)
 _MARKS_ACTIVE = "'pending', 'approved'"
 
@@ -144,6 +153,12 @@ class DB:
             self._conn.execute("ALTER TABLE posts ADD COLUMN query TEXT")
         if "niche_id" in cols:               # versões com nicho: a coluna deixa de existir
             self._conn.execute("UPDATE posts SET query = COALESCE(query, niche_id)")
+            # O SQLite recusa DROP COLUMN enquanto qualquer índice citar a coluna (os da v1 eram
+            # (niche_id, asin)). Derruba todos os índices de posts: o SCHEMA logo abaixo recria os atuais.
+            for (nome,) in self._conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='posts' "
+                    "AND name NOT LIKE 'sqlite_autoindex%'").fetchall():
+                self._conn.execute(f'DROP INDEX IF EXISTS "{nome}"')  # nosec B608 - nome vindo do próprio banco
             self._conn.execute("ALTER TABLE posts DROP COLUMN niche_id")
         wcols = {r[1] for r in self._conn.execute("PRAGMA table_info(watchlist)")}
         if "niche_id" in wcols:              # watchlist passa a ser única, sem nicho
@@ -156,6 +171,11 @@ class DB:
         if "niche_id" in rcols:
             self._conn.execute("ALTER TABLE runs RENAME COLUMN niche_id TO query")
         self._conn.executescript(SCHEMA)
+        # v1.3: a categoria era o searchIndex da API ("Electronics", "All"...). Agora é o
+        # departamento do site ("Eletrônicos, TV e Áudio"). Traduz o que já estava gravado.
+        for antigo, novo in SEARCH_INDEX_ANTIGO.items():
+            self._conn.execute("UPDATE posts SET category=? WHERE category=?", (novo, antigo))
+            self._conn.execute("UPDATE searches SET category=? WHERE category=?", (novo, antigo))
         # duplicatas antigas impediriam o índice único: mantém a mais recente de cada ASIN
         self._conn.execute("""UPDATE posts SET status='expired', note='duplicata removida na migração'
             WHERE status IN ('pending', 'approved') AND id NOT IN (

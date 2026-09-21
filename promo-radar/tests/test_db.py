@@ -7,7 +7,14 @@ from app.models import Offer, utcnow
 V1_SCHEMA = """CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, niche_id TEXT NOT NULL, asin TEXT NOT NULL,
  status TEXT NOT NULL, headline TEXT, text TEXT NOT NULL, price_cents INTEGER, basis_cents INTEGER, discount_pct REAL,
  score REAL, offer_json TEXT NOT NULL, price_checked_at TEXT NOT NULL, created_at TEXT NOT NULL, approved_at TEXT,
- sent_at TEXT, ended_at TEXT, note TEXT);"""
+ sent_at TEXT, ended_at TEXT, note TEXT);
+CREATE INDEX ix_posts_status ON posts(niche_id, status);
+CREATE INDEX ix_posts_asin ON posts(niche_id, asin);
+CREATE UNIQUE INDEX ux_posts_active ON posts(niche_id, asin) WHERE status IN ('pending', 'approved');
+CREATE TABLE watchlist (niche_id TEXT NOT NULL, asin TEXT NOT NULL, added_at TEXT NOT NULL,
+ PRIMARY KEY (niche_id, asin));
+CREATE TABLE runs (id INTEGER PRIMARY KEY AUTOINCREMENT, niche_id TEXT NOT NULL, started_at TEXT NOT NULL,
+ fetched INTEGER DEFAULT 0, queued INTEGER DEFAULT 0, rejected_json TEXT, error TEXT);"""
 
 
 def test_migrates_v1_database_with_duplicates(tmp_path):
@@ -16,17 +23,30 @@ def test_migrates_v1_database_with_duplicates(tmp_path):
     c.executescript(V1_SCHEMA)
     now = utcnow().isoformat()
     oj = f'{{"asin":"B0X","title":"t","url":"u","price_cents":1,"fetched_at":"{now}"}}'
-    for _ in range(3):   # duplicatas que a v1 permitia
+    for nicho in ("games", "lego", "casa"):   # o mesmo produto em 3 nichos: sem nicho, viram duplicatas
         c.execute("INSERT INTO posts(niche_id,asin,status,text,offer_json,price_checked_at,created_at) "
-                  "VALUES ('games','B0X','pending','t',?,?,?)", (oj, now, now))
+                  "VALUES (?,'B0X','pending','t',?,?,?)", (nicho, oj, now, now))
     c.execute("INSERT INTO posts(niche_id,asin,status,text,offer_json,price_checked_at,created_at) "
               "VALUES ('games','B0Y','sent',?,?,?,?)", (PURGED_TEXT, oj, now, now))
+    c.execute("INSERT INTO watchlist(niche_id,asin,added_at) VALUES ('games','B0W',?)", (now,))
+    c.execute("INSERT INTO watchlist(niche_id,asin,added_at) VALUES ('lego','B0W',?)", (now,))
+    c.execute("INSERT INTO runs(niche_id,started_at) VALUES ('games',?)", (now,))
     c.commit()
     c.close()
     db = DB(path)
     assert db.count_posts(["pending"]) == 1 and db.count_posts(["expired"]) == 2
     assert db._all("SELECT purged FROM posts WHERE asin='B0Y'")[0]["purged"] == 1
     assert db._all("PRAGMA journal_mode")[0][0] == "wal"
+    # a coluna de nicho some e vira o "termo" do post; os índices da v1 são refeitos sem ela
+    assert "niche_id" not in {r[1] for r in db._conn.execute("PRAGMA table_info(posts)")}
+    assert db._all("SELECT query FROM posts WHERE asin='B0Y'")[0]["query"] == "games"
+    assert db.watchlist() == ["B0W"]                      # watchlist deixa de repetir por nicho
+    assert db.recent_runs(5)[0]["query"] == "games"
+    indices = {r["name"] for r in db._all(
+        "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='posts'")}
+    assert {"ix_posts_rank", "ix_posts_cat_rank", "ux_posts_active"} <= indices
+    db.create_post(Offer(asin="B0NOVO0001", title="t", url="u", price_cents=1), "H", "t", 1, query="teclado")
+    assert db.count_posts(["pending"]) == 2               # o banco migrado continua utilizável
 
 
 def test_batch_purge_keeps_only_asin():
@@ -86,3 +106,19 @@ def test_category_filter_and_counts():
     assert db.count_by_category(["pending"]) == {"Electronics": 2, "VideoGames": 1}
     assert db.count_posts(["pending"], category="Electronics") == 2
     assert db.count_by_category(["pending"], termo="inexistente") == {}
+
+
+def test_migrates_old_api_categories_to_site_departments(tmp_path):
+    """Posts gravados com o searchIndex da API viram o departamento do site."""
+    path = str(tmp_path / "cat.db")
+    db = DB(path)
+    for i, cat in enumerate(["Electronics", "VideoGames", "Books", "All"]):
+        db.create_post(Offer(asin=f"B0OLD{i:06d}", title="t", url="u", price_cents=100), "H", "t", 1)
+        db.update_post(db.list_posts(["pending"])[0]["id"], category=cat)
+    db.save_search("teclado", "Computers")
+    db._conn.commit()
+    db._conn.close()
+    db2 = DB(path)                                   # reabrir dispara a migração
+    assert db2.count_by_category(["pending"]) == {
+        "Eletrônicos, TV e Áudio": 1, "Games e Consoles": 1, "Livros": 1, "": 1}
+    assert db2.searches()[0]["category"] == "Computadores e Informática"

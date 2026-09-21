@@ -15,6 +15,7 @@ from typing import Any
 
 import httpx
 
+from ..categories import from_browse_nodes
 from ..config import Settings
 from ..models import Offer, utcnow
 from .base import affiliate_link
@@ -32,6 +33,9 @@ RESOURCES = [
     "offersV2.listings.merchantInfo",
     "offersV2.listings.isBuyBoxWinner",
     "offersV2.listings.dealDetails",
+    "browseNodeInfo.browseNodes",            # departamento do produto (nome já em português)
+    "browseNodeInfo.browseNodes.ancestor",   # a escada até a categoria raiz
+    "browseNodeInfo.websiteSalesRank",
 ]
 
 
@@ -55,6 +59,29 @@ def _cents(money: Any) -> int | None:
     return int(round(float(amount) * 100)) if amount is not None else None
 
 
+def browse_names(item: dict) -> list[str]:
+    """Nomes de categoria que a Amazon devolveu, do mais específico ao mais genérico.
+
+    Percorre cada browse node e sobe pela escada de ancestrais até a raiz. É daqui que sai o
+    departamento do produto — o mesmo que aparece no menu do site.
+    """
+    saida: list[str] = []
+    for node in _g(item, "browseNodeInfo", "browseNodes") or []:
+        atual: Any = node
+        for _ in range(12):                       # a escada é curta; o limite evita ciclo
+            if not isinstance(atual, dict):
+                break
+            for campo in ("displayName", "contextFreeName"):
+                nome = _g(atual, campo)
+                if isinstance(nome, str) and nome and nome not in saida:
+                    saida.append(nome)
+            atual = _g(atual, "ancestor")
+    topo = _g(item, "browseNodeInfo", "websiteSalesRank", "displayName")
+    if isinstance(topo, str) and topo and topo not in saida:
+        saida.append(topo)
+    return saida
+
+
 def parse_item(item: dict, marketplace: str, tag: str) -> Offer | None:
     asin = _g(item, "asin")
     title = _g(item, "itemInfo", "title", "displayValue")
@@ -72,6 +99,7 @@ def parse_item(item: dict, marketplace: str, tag: str) -> Offer | None:
         image_url=_g(item, "images", "primary", "large", "url"),
         features=list(features)[:5],
         fetched_at=utcnow(),
+        category=from_browse_nodes(browse_names(item), marketplace),
     )
     if listing:
         price = _g(listing, "price") or {}
