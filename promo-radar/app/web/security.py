@@ -117,13 +117,18 @@ class LoginLimiter:
 
 
 def same_origin(request: Request) -> bool:
-    """POST só vale se Origin/Referer (quando presentes) apontarem para este mesmo host."""
+    """POST só vale se Origin/Referer (quando utilizáveis) apontarem para este mesmo host.
+
+    Origin pode vir como "null" (o próprio navegador manda isso em alguns casos, por exemplo
+    dependendo da Referrer-Policy da página). Nesse caso caímos no Referer e, se também não der,
+    liberamos: o token CSRF por sessão + o cookie SameSite=Strict continuam barrando o ataque.
+    """
     host = request.headers.get("host", "")
     for header in ("origin", "referer"):
-        value = request.headers.get(header)
-        if value:
+        value = (request.headers.get(header) or "").strip()
+        if value and value.lower() != "null":
             return urlsplit(value).netloc == host
-    return True   # clientes sem navegador (curl) não mandam; o token CSRF continua exigido
+    return True   # sem cabeçalho utilizável (curl, Origin: null): decide o token CSRF
 
 
 class SecurityMiddleware(BaseHTTPMiddleware):
@@ -142,7 +147,8 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         h["Content-Security-Policy"] = CSP
         h["X-Frame-Options"] = "DENY"
         h["X-Content-Type-Options"] = "nosniff"
-        h["Referrer-Policy"] = "no-referrer"
+        # same-origin: não vaza a URL do painel para fora, e mantém Origin/Referer válidos aqui dentro
+        h["Referrer-Policy"] = "same-origin"
         h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         if not request.url.path.startswith("/static/"):
             h["Cache-Control"] = "no-store"

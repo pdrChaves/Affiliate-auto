@@ -108,7 +108,8 @@ Dependências de runtime: 9 pacotes (`requirements.txt`).
 ```
 promo-radar/
 ├── app/
-│   ├── config.py            # .env (Settings) + niches.yaml (Niche); endpoints de token por versão
+│   ├── config.py            # .env (Settings) + niches.yaml (Niche, validando as categorias)
+│   ├── categories.py        # categorias oficiais (search_index) por marketplace
 │   ├── models.py            # Offer (snapshot do produto), PostStatus; valores em centavos (int)
 │   ├── db.py                # SQLite: posts, watchlist, runs; expurgo de conteúdo
 │   ├── service.py           # ORQUESTRAÇÃO: collect, refresh, prepare_send, monitor, expirar, expurgar
@@ -130,7 +131,7 @@ promo-radar/
 │   └── web/
 │       ├── server.py        # rotas do painel (login por sessão, CSRF, paginação)
 │       ├── security.py      # sessão, CSRF, bloqueio de força bruta, cabeçalhos HTTP
-│       ├── static/          # CSS e JS (sem script inline, por causa da CSP)
+│       ├── static/          # CSS e JS (sem script inline, por causa da CSP; ações via fetch)
 │       └── templates/       # base, index (fila), send (envio)
 ├── config/niches.yaml       # um bloco por comunidade
 ├── tests/                   # 62 testes (pytest)
@@ -144,7 +145,7 @@ promo-radar/
 
 | Tabela | Campos principais | Observação |
 |---|---|---|
-| `posts` | id, niche_id, **asin**, status, headline, text, price_cents, basis_cents, discount_pct, score, offer_json, price_checked_at, created_at, approved_at, sent_at, ended_at, note | Título, preço e texto são expurgados depois de 24h (não enviados) ou 49h (enviados) |
+| `posts` | id, niche_id, **asin**, **category** (categoria da Amazon onde o produto foi achado), status, headline, text, price_cents, basis_cents, discount_pct, score, offer_json, price_checked_at, created_at, approved_at, sent_at, ended_at, note | Título, preço e texto são expurgados depois de 24h (não enviados) ou 49h (enviados) |
 | `watchlist` | niche_id, asin, added_at | Só ASIN (pode ficar guardado sem prazo) |
 | `runs` | niche_id, started_at, fetched, queued, rejected_json, error | Log das coletas. Motivos de descarte agregados; nenhum conteúdo de produto |
 
@@ -212,7 +213,7 @@ https://www.amazon.com.br/dp/B0XXXXXXX?tag=seutag-20
 ## 9. Operação diária
 
 1. O agendador coleta sozinho (`collect_every_minutes` por nicho). Se o Telegram estiver configurado, chega um aviso quando entra post novo, só dentro de `posting_window`.
-2. No painel (aba **Fila**), revise: avisos 📝 em amarelo pedem atenção. Dá para **trocar a chamada**, **adicionar cupom**, **revalidar preço** ou **descartar**.
+2. No painel (aba **Fila**), revise: avisos 📝 em amarelo pedem atenção. Dá para **trocar a chamada**, **adicionar cupom**, **revalidar preço** ou **descartar** — essas ações acontecem **sem recarregar a página**: só o card muda e os filtros ficam onde estavam. Os filtros são o **nicho** e a **categoria da Amazon** (com a contagem de posts em cada uma).
 3. **Enviar →** o preço é conferido na Amazon naquele instante. Se a promoção caiu, o envio é bloqueado e o post expira; se continua de pé (ou se a API estiver fora, com aviso), você segue para **Abrir no WhatsApp** → escolha a comunidade → espere o card → enviar → volte e clique em **Já enviei**.
 4. O acompanhamento pós-envio vem desligado. Para tê-lo de volta (aviso quando a promoção acabar, para apagar a mensagem em até ~2 dias), ligue `MONITOR_SENT_ENABLED=true`.
 5. **Watchlist:** cole o ASIN de produtos que você quer acompanhar. Eles são checados a cada coleta e só viram post quando atingem os critérios do nicho.
@@ -265,13 +266,34 @@ Outro ponto a ter em mente: a Amazon pode **revogar o acesso à API** se as vend
 | `CONTENT_RETENTION_HOURS` | `24` | **não aumente**: é o limite da Licença |
 | `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | vazio | IA para as chamadas (opcional) |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | vazio | alertas para você (opcional) |
-| `PANEL_USER` / `PANEL_PASSWORD` | admin / *(vazio)* | **obrigatória, mínimo 12 caracteres**: o painel não sobe com senha vazia ou de exemplo |
+| `PANEL_USER` / `PANEL_PASSWORD` | admin / *(vazio)* | **obrigatória, mínimo 8 caracteres**: o painel não sobe com senha vazia ou de exemplo |
 | `COOKIE_SECURE` | `false` | `true` quando o painel estiver atrás de HTTPS (cookie Secure + HSTS) |
 | `HOST` / `PORT` | `127.0.0.1` / `8000` | por padrão só a própria máquina acessa |
 
 ### `config/niches.yaml` (1 bloco por comunidade)
 
-`searches` (palavra-chave + `search_index`, ou `browse_node_id`), `watchlist`, `min_discount_pct`, `min_price`/`max_price`, `require_buybox`, `accept_list_price`, `cooldown_hours`, `repost_if_drop_pct`, `max_posts_per_run`, `posting_window`, `collect_every_minutes`, `style` (emoji, chamadas de reserva, tom para a IA).
+Cada busca fica dentro de uma **categoria da Amazon** (`search_index`), a mesma taxonomia do site — então o que está aqui corresponde ao que você encontra pesquisando no amazon.com.br. O arquivo é validado ao subir: categoria inexistente derruba o sistema com a lista das válidas, em vez de devolver busca vazia em silêncio.
+
+**As 10 categorias do amazon.com.br** (`python -m app.cli categorias`):
+
+| `search_index` | Categoria |
+|---|---|
+| `All` | Todos os departamentos |
+| `Books` | Livros |
+| `Computers` | Computadores e Informática |
+| `Electronics` | Eletrônicos |
+| `HomeAndKitchen` | Casa e Cozinha |
+| `KindleStore` | Loja Kindle |
+| `MobileApps` | Apps e Jogos |
+| `OfficeProducts` | Material para Escritório e Papelaria |
+| `ToolsAndHomeImprovement` | Ferramentas e Materiais de Construção |
+| `VideoGames` | Games |
+
+**Atenção:** `Fashion`, `Toys`, `HealthPersonalCare`, `SportsAndOutdoors`, `Beauty` e `PetSupplies` existem em outros países, **não no Brasil**. Para moda, brinquedos (LEGO), suplementos e afins: `search_index: All` com palavras-chave, ou um **browse node**.
+
+**Browse node** é a subcategoria exata: abra a categoria no amazon.com.br e copie o número que aparece em `node=` na URL (`.../s?i=toys&rh=n%3A16333486011` → `16333486011`). Ele exige uma categoria específica em `search_index` (não `All`). Cada busca precisa de `keywords` ou `browse_node_id`: só a categoria não basta para a API.
+
+Demais campos: `watchlist`, `min_discount_pct`, `min_price`/`max_price`, `require_buybox`, `accept_list_price`, `cooldown_hours`, `repost_if_drop_pct`, `max_posts_per_run`, `posting_window`, `collect_every_minutes`, `style` (emoji, chamadas de reserva, tom para a IA).
 **Novo nicho** = copiar um bloco e reiniciar. Nenhuma linha de código muda.
 
 ---
@@ -321,7 +343,7 @@ Também verifiquei visualmente o painel (desktop e celular) com o servidor rodan
 
 | Mudança desejada | Arquivo(s) |
 |---|---|
-| Novo nicho/comunidade | `config/niches.yaml` |
+| Novo nicho/comunidade | `config/niches.yaml` (categorias da Amazon) |
 | Layout do post | `app/pipeline/render.py` (+ testes em `tests/test_render.py`) |
 | Critérios de promoção | `app/pipeline/scorer.py` |
 | Outra IA ou prompt | `app/pipeline/copywriter.py` |

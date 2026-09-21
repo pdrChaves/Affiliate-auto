@@ -9,16 +9,18 @@ from .creators import parse_item
 
 # (asin, título, preço "De", preço atual base, índice, flags)
 CATALOG = [
-    ("B0MOCK0001", "Tênis Under Armour Hooper Masculino Corrida", 599.00, 316.00, "Fashion", {}),
-    ("B0MOCK0002", "Kit Bermuda + Camiseta Dry Fit Masculina Treino", 119.00, 87.00, "Fashion", {}),
-    ("B0MOCK0003", "Camiseta Dry Fit Masculina Básica Pack 3", 149.90, 139.90, "Fashion", {}),  # desconto baixo
-    ("B0MOCK0004", "Barbeador Elétrico Philips OneBlade", 299.00, 169.90, "HealthPersonalCare", {}),
-    ("B0MOCK0005", "Tênis Olympikus Corre 3 Masculino", 499.99, 289.99, "Fashion", {"stock": False}),
-    ("B0MOCK0006", "Relógio Casio Masculino Digital", 350.00, 189.00, "Fashion", {"buybox": False}),
-    ("B0MOCK0101", "LEGO Speed Champions Williams Racing FW46 76-77249", 249.99, 162.36, "Toys", {}),
-    ("B0MOCK0102", "LEGO Minecraft O Encontro com o Guardião 21274", 189.99, 116.89, "Toys", {}),
-    ("B0MOCK0103", "LEGO Technic Carro de Corrida 42151", 399.99, 359.99, "Toys", {}),  # desconto baixo
-    ("B0MOCK0104", "LEGO Technic Moto 42159", 129.99, 84.49, "Toys", {"deal": "Oferta Relâmpago"}),
+    ("B0MOCK0001", "Fone de Ouvido Bluetooth JBL Tune 520BT", 399.00, 219.00, "Electronics", {}),
+    ("B0MOCK0002", "Smartwatch Amazfit Bip 6 GPS", 599.00, 429.00, "Electronics", {}),
+    ("B0MOCK0003", "Caixa de Som Bluetooth JBL Go 4", 249.90, 229.90, "Electronics", {}),   # desconto baixo
+    ("B0MOCK0004", "Fone de Ouvido Bluetooth Xiaomi Redmi Buds 6", 299.00, 169.90, "Electronics", {}),
+    ("B0MOCK0005", "Smartwatch Xiaomi Watch S4", 899.99, 559.99, "Electronics", {"stock": False}),
+    ("B0MOCK0006", "Caixa de Som Bluetooth Sony SRS-XB100", 449.00, 249.00, "Electronics", {"buybox": False}),
+    ("B0MOCK0101", "Headset Gamer HyperX Cloud Stinger 2", 349.99, 212.36, "VideoGames", {}),
+    ("B0MOCK0102", "Controle Sem Fio DualSense PS5", 489.99, 316.89, "VideoGames", {}),
+    ("B0MOCK0103", "Headset Gamer Logitech G435", 399.99, 359.99, "VideoGames", {}),        # desconto baixo
+    ("B0MOCK0104", "Teclado Mecânico Redragon Kumara K552", 229.99, 144.49, "Computers", {"deal": "Oferta Relâmpago"}),
+    ("B0MOCK0201", "Air Fryer Mondial 4L AFN-40", 399.00, 249.00, "HomeAndKitchen", {}),
+    ("B0MOCK0202", "Robô Aspirador Xiaomi E10", 1499.00, 899.00, "HomeAndKitchen", {}),
 ]
 
 

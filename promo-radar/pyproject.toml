@@ -1,6 +1,7 @@
 [tool.ruff]
 line-length = 120
 target-version = "py311"
+exclude = ["qa"]   # scripts da bateria de avaliação, escritos para rodar à mão
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "B", "UP", "SIM", "S", "C90", "N"]

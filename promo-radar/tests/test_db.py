@@ -18,9 +18,9 @@ def test_migrates_v1_database_with_duplicates(tmp_path):
     oj = f'{{"asin":"B0X","title":"t","url":"u","price_cents":1,"fetched_at":"{now}"}}'
     for _ in range(3):   # duplicatas que a v1 permitia
         c.execute("INSERT INTO posts(niche_id,asin,status,text,offer_json,price_checked_at,created_at) "
-                  "VALUES ('lego','B0X','pending','t',?,?,?)", (oj, now, now))
+                  "VALUES ('games','B0X','pending','t',?,?,?)", (oj, now, now))
     c.execute("INSERT INTO posts(niche_id,asin,status,text,offer_json,price_checked_at,created_at) "
-              "VALUES ('lego','B0Y','sent',?,?,?,?)", (PURGED_TEXT, oj, now, now))
+              "VALUES ('games','B0Y','sent',?,?,?,?)", (PURGED_TEXT, oj, now, now))
     c.commit()
     c.close()
     db = DB(path)
@@ -31,7 +31,7 @@ def test_migrates_v1_database_with_duplicates(tmp_path):
 
 def test_batch_purge_keeps_only_asin():
     db = DB(":memory:")
-    ids = [db.create_post("lego", Offer(asin=f"B0PURGE{i:03d}", title="Produto", url="u", price_cents=100),
+    ids = [db.create_post("games", Offer(asin=f"B0PURGE{i:03d}", title="Produto", url="u", price_cents=100),
                           "H", "texto", 1) for i in range(50)]
     for i in ids:
         db.update_post(i, status="expired", created_at=utcnow() - timedelta(hours=30))

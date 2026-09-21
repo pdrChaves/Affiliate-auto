@@ -22,3 +22,10 @@ img.thumb{max-width:100%;max-height:160px;border-radius:8px;display:block;margin
 .pager{display:flex;gap:8px;align-items:center;justify-content:center;margin:16px 0}
 .login{max-width:360px;margin:12vh auto;display:flex;flex-direction:column;gap:10px}
 .hidden-ta{position:absolute;left:-9999px}
+.filtros{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.fl{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.fl-t{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);width:150px}
+.chip{font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);color:var(--mute);text-decoration:none}
+.chip.on{color:var(--text);border-color:var(--acc);background:#14251b}
+.chip.vazia{opacity:.45}
+.note:empty{display:none}

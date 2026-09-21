@@ -26,7 +26,7 @@ Ambiente: o mesmo da v1 (container Linux, 2 vCPU, 8 GB, Python 3.11, 1 processo 
 |---|---|---|---|
 | 1 | CSRF em todas as ações | Login por **sessão** (sai o HTTP Basic, que o navegador reenviava sozinho). Cookie `HttpOnly` + `SameSite=Strict`, **token CSRF** em todo formulário e checagem de `Origin`/`Referer` em todo POST | SEC-07, `test_csrf_token_and_origin` |
 | 2 | Link manual aceitava domínio falso | **O campo de URL não existe mais.** O link é sempre montado pelo sistema: `amazon.com.br/dp/ASIN?tag=SUA_TAG`, com ASIN validado (10 caracteres) | SEC-10, `test_manual_link_is_always_generated` |
-| 3 | Aceitava a senha de exemplo | O painel **não sobe** com senha vazia, de exemplo, igual ao usuário ou com menos de 12 caracteres | SEC-03, `test_refuses_weak_or_missing_password` |
+| 3 | Aceitava a senha de exemplo | O painel **não sobe** com senha vazia, de exemplo, igual ao usuário, em uma lista de senhas comuns ou com menos de 8 caracteres (limite definido por você; com o painel local + bloqueio por IP, é suficiente) | SEC-03, `test_refuses_weak_or_missing_password` |
 | 4 | Sem limite de força bruta | Bloqueio por IP após 5 falhas em 15 min (HTTP 429). Durante o bloqueio, nem a senha certa entra | SEC-04, `test_bruteforce_lockout` |
 | 5 | "Enviar"/"Revalidar" davam 500 com a API fora | "Enviar" **mostra aviso e libera** o envio com o preço e o horário da última checagem, se ela tiver menos de 24h (limite da Licença); depois disso bloqueia. "Revalidar" volta ao painel com a mensagem "API indisponível", sem alterar nada. Na tela, a API tenta só 2 vezes (antes 4) | DISP-05/06, `test_send_with_api_down_*` |
 | 6 | Escutava em 0.0.0.0 | Padrão `HOST=127.0.0.1`. No Docker, a porta só é publicada em `127.0.0.1:8000` | bandit B104 zerado |

@@ -38,12 +38,14 @@ CREATE TABLE IF NOT EXISTS posts (
     sent_at TEXT,
     ended_at TEXT,
     note TEXT,
-    purged INTEGER NOT NULL DEFAULT 0
+    purged INTEGER NOT NULL DEFAULT 0,
+    category TEXT
 );
 DROP INDEX IF EXISTS ix_posts_status;
 CREATE INDEX IF NOT EXISTS ix_posts_rank ON posts(status, score, created_at);
 CREATE INDEX IF NOT EXISTS ix_posts_asin ON posts(niche_id, asin);
 CREATE INDEX IF NOT EXISTS ix_posts_created ON posts(purged, created_at);
+CREATE INDEX IF NOT EXISTS ix_posts_category ON posts(category);
 
 CREATE TABLE IF NOT EXISTS watchlist (
     niche_id TEXT NOT NULL,
@@ -68,8 +70,10 @@ UNIQUE_ACTIVE = """CREATE UNIQUE INDEX IF NOT EXISTS ux_posts_active ON posts(ni
                    WHERE status IN ('pending', 'approved')"""
 
 # Colunas que update_post aceita (evita montar SQL com nomes arbitrários)
+_MARKS_ACTIVE = "'pending', 'approved'"
+
 UPDATABLE = {"status", "headline", "text", "price_cents", "basis_cents", "discount_pct", "score", "offer_json",
-             "price_checked_at", "created_at", "approved_at", "sent_at", "ended_at", "note"}
+             "price_checked_at", "created_at", "approved_at", "sent_at", "ended_at", "note", "category"}
 OFFER_FIELDS = {f.name for f in fields(Offer)}
 
 
@@ -117,6 +121,8 @@ class DB:
         if cols and "purged" not in cols:   # banco da v1
             self._conn.execute("ALTER TABLE posts ADD COLUMN purged INTEGER NOT NULL DEFAULT 0")
             self._conn.execute("UPDATE posts SET purged=1 WHERE text=?", (PURGED_TEXT,))
+        if cols and "category" not in cols:  # bancos anteriores à filtragem por categoria
+            self._conn.execute("ALTER TABLE posts ADD COLUMN category TEXT")
         self._conn.executescript(SCHEMA)
         # duplicatas antigas (bug da v1) impediriam o índice único: mantém a mais recente
         self._conn.execute("""UPDATE posts SET status='expired', note='duplicata removida na migração'
@@ -173,10 +179,10 @@ class DB:
         try:
             cur = self._exec(
                 """INSERT INTO posts(niche_id, asin, status, headline, text, price_cents, basis_cents, discount_pct,
-                   score, offer_json, price_checked_at, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   score, offer_json, price_checked_at, created_at, category) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (niche_id, offer.asin, PostStatus.PENDING.value, headline, text, offer.price_cents,
                  offer.basis_cents, offer.discount_pct, score, offer_to_json(offer), offer.fetched_at.isoformat(),
-                 utcnow().isoformat()),
+                 utcnow().isoformat(), offer.category),
             )
         except sqlite3.IntegrityError as e:
             raise DuplicateActivePostError(offer.asin) from e
@@ -187,7 +193,7 @@ class DB:
         return self._post(rows[0]) if rows else None
 
     @staticmethod
-    def _filter(statuses: list[str] | None, niche_id: str | None) -> tuple[str, list[Any]]:
+    def _filter(statuses: list[str] | None, niche_id: str | None, category: str | None = None) -> tuple[str, list[Any]]:
         """Monta o WHERE só com placeholders "?" (a quantidade varia; nenhum valor é interpolado)."""
         st = statuses or [s.value for s in PostStatus]
         where = f" WHERE status IN ({','.join('?' * len(st))})"  # nosec B608
@@ -195,11 +201,14 @@ class DB:
         if niche_id:
             where += " AND niche_id = ?"
             params.append(niche_id)
+        if category:
+            where += " AND category = ?"
+            params.append(category)
         return where, params
 
     def list_posts(self, statuses: list[str] | None = None, niche_id: str | None = None, limit: int = 200,
-                   offset: int = 0) -> list[dict]:
-        where, params = self._filter(statuses, niche_id)
+                   offset: int = 0, category: str | None = None) -> list[dict]:
+        where, params = self._filter(statuses, niche_id, category)
         # 2 etapas: ordena só os ids pelo índice (status, score, created_at) e depois busca as linhas da página.
         # Evita carregar/ordenar milhares de linhas completas quando a fila ou o histórico crescem.
         ids_sql = "SELECT id FROM posts" + where + " ORDER BY score DESC, created_at DESC LIMIT ? OFFSET ?"  # nosec B608
@@ -210,9 +219,28 @@ class DB:
         by_id = {r["id"]: r for r in rows}
         return [self._post(by_id[i]) for i in ids]
 
-    def count_posts(self, statuses: list[str] | None = None, niche_id: str | None = None) -> int:
-        where, params = self._filter(statuses, niche_id)
+    def count_posts(self, statuses: list[str] | None = None, niche_id: str | None = None,
+                    category: str | None = None) -> int:
+        where, params = self._filter(statuses, niche_id, category)
         return int(self._all("SELECT COUNT(*) AS n FROM posts" + where, tuple(params))[0]["n"])  # nosec B608
+
+    def count_by_category(self, statuses: list[str] | None = None, niche_id: str | None = None) -> dict[str, int]:
+        """Quantos posts por categoria da Amazon (para os filtros do painel)."""
+        where, params = self._filter(statuses, niche_id)
+        sql = "SELECT COALESCE(category, '') AS c, COUNT(*) AS n FROM posts" + where + " GROUP BY c"  # nosec B608
+        return {r["c"]: r["n"] for r in self._all(sql, tuple(params))}
+
+    def niches_in_use(self) -> list[str]:
+        return [r["niche_id"] for r in self._all("SELECT DISTINCT niche_id FROM posts ORDER BY niche_id")]
+
+    def expire_orphan_posts(self, known_niches: list[str]) -> int:
+        """Posts ativos de nichos que sumiram do niches.yaml (renomeados/removidos)."""
+        rows = self._all(f"SELECT id FROM posts WHERE status IN ({_MARKS_ACTIVE})"  # nosec B608
+                         f" AND niche_id NOT IN (SELECT value FROM json_each(?))",
+                         (json.dumps(known_niches),))
+        for r in rows:
+            self.update_post(r["id"], status=PostStatus.EXPIRED, note="nicho removido da configuração")
+        return len(rows)
 
     def update_post(self, post_id: int, **changes: Any) -> None:
         conv: dict[str, Any] = {}

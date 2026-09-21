@@ -5,8 +5,10 @@ from functools import lru_cache
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from .categories import as_table, is_valid
 
 # Endpoints de token do Creators API por versão de credencial.
 # Brasil pertence ao grupo "North America" (versões x.1).
@@ -20,7 +22,11 @@ TOKEN_URLS = {
 }
 
 
-WEAK_PASSWORDS = {"troque-esta-senha", "admin", "password", "123456789012", "senha123456789"}
+MIN_PASSWORD_LEN = 8
+MARKETPLACE = "www.amazon.com.br"   # marketplace usado para validar as categorias do niches.yaml
+
+WEAK_PASSWORDS = {"troque-esta-senha", "admin", "password", "12345678", "123456789", "123456789012",
+                  "senha123", "senha1234", "admin123", "qwerty123", "promoradar"}
 
 
 class Settings(BaseSettings):
@@ -49,7 +55,7 @@ class Settings(BaseSettings):
     telegram_chat_id: str = ""
 
     panel_user: str = "admin"
-    panel_password: str = ""            # obrigatório, >= 12 caracteres (o painel não sobe sem isso)
+    panel_password: str = ""            # obrigatório, >= 8 caracteres (o painel não sobe sem isso)
     cookie_secure: bool = False         # true quando o painel estiver atrás de HTTPS (liga Secure + HSTS)
     session_hours: int = 12
     login_max_failures: int = 5         # falhas por IP na janela abaixo → bloqueio
@@ -67,8 +73,8 @@ class Settings(BaseSettings):
             return "PANEL_PASSWORD não definida"
         if pw in WEAK_PASSWORDS or pw.lower() == self.panel_user.lower():
             return "PANEL_PASSWORD é a senha de exemplo ou é igual ao usuário"
-        if len(pw) < 12:
-            return "PANEL_PASSWORD precisa ter pelo menos 12 caracteres"
+        if len(pw) < MIN_PASSWORD_LEN:
+            return f"PANEL_PASSWORD precisa ter pelo menos {MIN_PASSWORD_LEN} caracteres"
         return None
 
     @property
@@ -77,9 +83,26 @@ class Settings(BaseSettings):
 
 
 class SearchSpec(BaseModel):
+    """Uma busca dentro de UMA categoria da Amazon (searchIndex), a mesma taxonomia do site.
+
+    Precisa de `keywords` ou `browse_node_id` — a Amazon não devolve resultados só com a categoria.
+    O browse node é o número que aparece em `?node=` na URL da categoria no amazon.com.br e permite
+    descer a subcategorias que o searchIndex não alcança.
+    """
     keywords: str | None = None
     search_index: str = "All"
     browse_node_id: str | None = None
+
+    @model_validator(mode="after")
+    def _check(self) -> SearchSpec:
+        if not is_valid(self.search_index, MARKETPLACE):
+            raise ValueError(f"categoria (search_index) inválida: {self.search_index!r}\n"
+                             f"Categorias válidas em {MARKETPLACE}:\n{as_table(MARKETPLACE)}")
+        if not self.keywords and not self.browse_node_id:
+            raise ValueError("cada busca precisa de 'keywords' ou 'browse_node_id'")
+        if self.browse_node_id and self.search_index == "All":
+            raise ValueError("browse_node_id exige uma categoria específica em search_index (não 'All')")
+        return self
 
 
 class Style(BaseModel):
@@ -108,7 +131,11 @@ class Niche(BaseModel):
     style: Style = Field(default_factory=Style)
 
 
-def load_niches(path: str | Path) -> list[Niche]:
+def load_niches(path: str | Path, marketplace: str | None = None) -> list[Niche]:
+    """Lê o niches.yaml validando as categorias contra a lista oficial do marketplace."""
+    global MARKETPLACE
+    if marketplace:
+        MARKETPLACE = marketplace
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
     return [Niche(**n) for n in data.get("niches", [])]
 

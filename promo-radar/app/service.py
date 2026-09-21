@@ -94,16 +94,21 @@ class PromoService:
             lock.release()
 
     def _gather(self, niche: Niche) -> dict[str, Offer]:
+        """Busca por categoria da Amazon. Cada oferta guarda em qual categoria foi encontrada."""
         offers: dict[str, Offer] = {}
         for spec in niche.searches:
             for o in self.client.search(
                     keywords=spec.keywords, search_index=spec.search_index,
                     browse_node_id=spec.browse_node_id, min_saving_pct=int(niche.min_discount_pct),
                     min_price_cents=int(niche.min_price * 100), max_price_cents=int(niche.max_price * 100)):
+                if o.asin in offers:
+                    continue                       # já achado por uma busca anterior: mantém a categoria dela
+                o.category = spec.search_index
                 offers[o.asin] = o
         watch = sorted(set(niche.watchlist) | set(self.db.watchlist(niche.id)))
         if watch:
             for o in self.client.get_items(watch):
+                o.category = offers[o.asin].category if o.asin in offers else None
                 offers[o.asin] = o
         return offers
 
@@ -147,6 +152,13 @@ class PromoService:
                 self.db.update_post(pid, note=" | ".join(v.warnings))
             queued += 1
         return queued
+
+    def expire_orphan_posts(self) -> int:
+        """Nichos renomeados ou removidos do niches.yaml deixam posts órfãos na fila: expira e avisa no log."""
+        n = self.db.expire_orphan_posts(list(self.niches))
+        if n:
+            log.info("%s post(s) de nichos que não existem mais foram expirados", n)
+        return n
 
     def collect_all(self) -> list[dict]:
         return [self.collect(n.id) for n in self.niches.values() if n.enabled]

@@ -28,6 +28,7 @@ class Offer:
     features: list[str] = field(default_factory=list)
     deal_badge: str | None = None    # ex.: "Oferta relâmpago"
     source: str = "api"              # api | manual
+    category: str | None = None      # categoria da Amazon (search_index) em que o produto foi achado
     coupon: str | None = None        # cupom digitado por você (a API não fornece cupons)
     fetched_at: datetime = field(default_factory=utcnow)
 

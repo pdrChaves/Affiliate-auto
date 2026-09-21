@@ -31,24 +31,24 @@ def tok_ok(req):
 
 # A1 API retornando 500
 def h500(req): return tok_ok(req) or httpx.Response(500)
-s = svc_with(creators(h500)); t=time.perf_counter(); r = s.collect("lego"); dt=time.perf_counter()-t
+s = svc_with(creators(h500)); t=time.perf_counter(); r = s.collect("games"); dt=time.perf_counter()-t
 rec("DISP-01","API da Amazon com erro 500: coleta falha de forma controlada", "error" in r, f"erro registrado, sem derrubar o processo; levou {dt:.1f}s (4 tentativas com backoff)", "alta")
 # A2 429 permanente
 def h429(req): return tok_ok(req) or httpx.Response(429)
-s = svc_with(creators(h429)); t=time.perf_counter(); r = s.collect("lego"); dt=time.perf_counter()-t
+s = svc_with(creators(h429)); t=time.perf_counter(); r = s.collect("games"); dt=time.perf_counter()-t
 rec("DISP-02","Throttling (429) permanente", "error" in r, f"desiste após {dt:.1f}s por busca; próxima coleta tenta de novo", "media")
 # A3 timeout
 def hto(req):
     if tok_ok(req): return tok_ok(req)
     raise httpx.ReadTimeout("timeout", request=req)
-s = svc_with(creators(hto)); t=time.perf_counter(); r = s.collect("lego"); dt=time.perf_counter()-t
+s = svc_with(creators(hto)); t=time.perf_counter(); r = s.collect("games"); dt=time.perf_counter()-t
 rec("DISP-03","Timeout da API na coleta", "error" in r and dt > 5, f"capturado após {dt:.1f}s com 4 tentativas e backoff (timeout agora entra no retry)", "media")
 # A4 token endpoint fora
 def htok(req): return httpx.Response(503) if req.url.path.endswith("token") else httpx.Response(200, json={})
-s = svc_with(creators(htok)); r = s.collect("lego")
+s = svc_with(creators(htok)); r = s.collect("games")
 rec("DISP-04","Servidor de token (OAuth) fora do ar", "error" in r, r.get("error","")[:90], "media")
 # A5 enviar com API fora -> painel
-good = svc_with(MockClient(settings(), jitter=0)); good.collect("lego")
+good = svc_with(MockClient(settings(), jitter=0)); good.collect("games")
 pid = good.db.list_posts(["pending"])[0]["id"]; good.db.update_post(pid, price_checked_at=utcnow()-timedelta(hours=2))
 good.client = creators(h500)
 c = TestClient(create_app(good, with_scheduler=False), raise_server_exceptions=False)
@@ -90,9 +90,9 @@ class SlowMock(MockClient):
     def search(self, *a, **k):
         time.sleep(0.2); return super().search(*a, **k)
 s = svc_with(SlowMock(settings(), jitter=0), db)
-ths=[threading.Thread(target=s.collect, args=("lego",)) for _ in range(5)]
+ths=[threading.Thread(target=s.collect, args=("games",)) for _ in range(5)]
 [t.start() for t in ths]; [t.join() for t in ths]
-posts = db.list_posts(["pending"], niche_id="lego"); asins=[p["asin"] for p in posts]
+posts = db.list_posts(["pending"], niche_id="games"); asins=[p["asin"] for p in posts]
 dups = len(asins)-len(set(asins))
 rec("DISP-11","Coletas simultâneas não duplicam posts", dups==0, f"5 coletas paralelas → {len(asins)} posts, {dups} duplicados", "media")
 # DISP-11b: dois PROCESSOS gravando o mesmo produto (índice único)
@@ -100,9 +100,9 @@ from app.models import Offer
 from app.db import DuplicateActivePostError
 db2 = DB(str(QA / "run/race.db"))
 o = Offer(asin="B0RACE0001", title="t", url="u", price_cents=1)
-db.create_post("lego", o, "H", "t", 1)
+db.create_post("games", o, "H", "t", 1)
 try:
-    db2.create_post("lego", o, "H", "t", 1); ok=False
+    db2.create_post("games", o, "H", "t", 1); ok=False
 except DuplicateActivePostError:
     ok=True
 rec("DISP-12","Duas conexões/processos não duplicam o mesmo produto", ok, "índice único parcial (niche_id, asin) para posts ativos", "media")

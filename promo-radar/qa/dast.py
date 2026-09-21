@@ -70,7 +70,7 @@ rec("SEC-07", "CSRF: POST sem token, com token forjado ou de outra origem é rec
 xs = "<script>alert('xss')</script>"
 xh = '"><img src=x onerror=alert(1)>'
 xt = "</textarea><script>alert(2)</script>"
-c.post("/manual", data={"csrf": tok, "niche": "lego", "asin": "B0XSSXSS01", "title": (xs + xt)[:290], "coupon": xh[:30]})
+c.post("/manual", data={"csrf": tok, "niche": "games", "asin": "B0XSSXSS01", "title": (xs + xt)[:290], "coupon": xh[:30]})
 page = c.get("/").text
 import re  # noqa: E402
 
@@ -85,8 +85,8 @@ bad_urls = ["https://evil.example/phish?x=amazon.com.br&tag=t-20", "javascript:a
             "https://amazon.com.br.evil.example/?tag=x"]
 leaks = []
 for i, u in enumerate(bad_urls):
-    c.post("/manual", data={"csrf": tok, "niche": "radar-homem", "asin": f"B0URLURL0{i}", "title": "t", "url": u})
-page = c.get("/?niche=radar-homem").text
+    c.post("/manual", data={"csrf": tok, "niche": "eletronicos", "asin": f"B0URLURL0{i}", "title": "t", "url": u})
+page = c.get("/?niche=eletronicos").text
 leaks = [u for u in ["evil.example", "javascript:"] if u in page]
 rec("SEC-10", "Post manual não aceita link de terceiros", not leaks,
     "campo de URL removido: o link é sempre amazon.com.br/dp/ASIN?tag=SUA_TAG; URLs enviadas foram ignoradas"
@@ -102,14 +102,20 @@ inv = {"post_inexistente_refresh": safe(lambda: c.post("/posts/999999/refresh", 
        "post_inexistente_approve": safe(lambda: c.post("/posts/999999/approve", data={"csrf": tok})),
        "nicho_inexistente_collect": safe(lambda: c.post("/collect", data={"csrf": tok, "niche": "naoexiste"})),
        "nicho_inexistente_manual": safe(lambda: c.post("/manual", data={"csrf": tok, "niche": "naoexiste", "asin": "B0ABCDEF12", "title": "t"})),
-       "preco_invalido_manual": safe(lambda: c.post("/manual", data={"csrf": tok, "niche": "lego", "asin": "B0ABCDEF12", "title": "t", "price": "abc"}))}
+       "preco_invalido_manual": safe(lambda: c.post("/manual", data={"csrf": tok, "niche": "games", "asin": "B0ABCDEF12", "title": "t", "price": "abc"}))}
 err_page = c.post("/posts/999999/refresh", data={"csrf": tok}).text
-rec("SEC-12", "Entradas inválidas retornam 4xx (não 500) e sem stack trace",
-    all(400 <= v < 500 for v in inv.values()) and "Traceback" not in err_page, inv, "baixa")
+# coleta com nicho inexistente volta ao painel com aviso (303) em vez de tela de erro
+nicho_ok = inv.pop("nicho_inexistente_collect") == 303
+aviso = c.post("/collect", data={"csrf": tok, "niche": "naoexiste"}, follow_redirects=False)
+nicho_ok = nicho_ok and "nicho_desconhecido" in aviso.headers.get("location", "")
+inv["nicho_inexistente_collect"] = f"303 + aviso ({nicho_ok})"
+rec("SEC-12", "Entradas inválidas retornam 4xx/aviso (não 500) e sem stack trace",
+    all(400 <= v < 500 for v in inv.values() if isinstance(v, int)) and nicho_ok and "Traceback" not in err_page,
+    inv, "baixa")
 
 big = "A" * (10 * 1024 * 1024)
-r = safe(lambda: c.post("/manual", data={"csrf": tok, "niche": "lego", "asin": "B0BIGBIG01", "title": big}))
-r2 = safe(lambda: c.post("/manual", data={"csrf": tok, "niche": "lego", "asin": "B0BIGBIG01", "title": "A" * 400}))
+r = safe(lambda: c.post("/manual", data={"csrf": tok, "niche": "games", "asin": "B0BIGBIG01", "title": big}))
+r2 = safe(lambda: c.post("/manual", data={"csrf": tok, "niche": "games", "asin": "B0BIGBIG01", "title": "A" * 400}))
 rec("SEC-13", "Limite de tamanho de entrada", r == 413 and r2 == 422, {"corpo_10MB": r, "titulo_400_chars": r2}, "media")
 
 r = c.post("/posts/1/reject", data={"csrf": tok, "tab": "fila\r\nSet-Cookie: pwn=1"}, follow_redirects=False)

@@ -12,8 +12,8 @@ def test_cli_commands(monkeypatch, capsys, svc):
     import app.app_factory
     from app import cli
     monkeypatch.setattr(app.app_factory, "build_service", lambda *a, **k: svc)
-    cli.main(["collect", "lego"])
-    assert json.loads(capsys.readouterr().out)["niche"] == "lego"
+    cli.main(["collect", "games"])
+    assert json.loads(capsys.readouterr().out)["niche"] == "games"
     cli.main(["preview"])
     assert "#publi" in capsys.readouterr().out
     cli.main(["monitor"])
@@ -26,7 +26,7 @@ def test_scheduler_registers_jobs(svc):
     sch = start_scheduler(svc)
     try:
         ids = {j.id for j in sch.get_jobs()}
-        assert {"collect:lego", "collect:radar-homem", "expire_queue", "purge_content", "housekeeping"} <= ids
+        assert {"collect:games", "collect:eletronicos", "expire_queue", "purge_content", "housekeeping"} <= ids
         assert "monitor_sent" not in ids          # desligado por padrão
         assert sch.running
     finally:
@@ -115,9 +115,16 @@ def test_search_payload_and_pagination():
         bodies.append(json.loads(req.content))
         items = [dict(ITEM, asin=f"B0SRCH{i:04d}") for i in range(10 if len(bodies) == 1 else 3)]
         return httpx.Response(200, json={"searchResult": {"items": items}})
-    out = _client(h).search("lego", "Toys", browse_node_id="123", min_saving_pct=20, min_price_cents=5000,
+    out = _client(h).search("headset gamer", "VideoGames", browse_node_id="123", min_saving_pct=20, min_price_cents=5000,
                             max_price_cents=90000, pages=3)
     assert len(out) == 13 and len(bodies) == 2           # parou quando a página veio incompleta
     b = bodies[0]
-    assert b["keywords"] == "lego" and b["minSavingPercent"] == 20 and b["browseNodeId"] == "123"
+    assert b["keywords"] == "headset gamer" and b["minSavingPercent"] == 20 and b["browseNodeId"] == "123"
     assert b["minPrice"] == 5000 and b["itemPage"] == 1 and bodies[1]["itemPage"] == 2
+
+
+def test_cli_categorias(capsys):
+    from app import cli
+    cli.main(["categorias"])
+    out = capsys.readouterr().out
+    assert "Electronics" in out and "VideoGames" in out and "Fashion" not in out

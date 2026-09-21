@@ -16,8 +16,8 @@ class DownClient(MockClient):
 
 
 def _stale_post(svc, hours=2):
-    svc.collect("lego")
-    p = svc.db.list_posts(["pending"], niche_id="lego")[0]
+    svc.collect("games")
+    p = svc.db.list_posts(["pending"], niche_id="games")[0]
     svc.db.update_post(p["id"], price_checked_at=utcnow() - timedelta(hours=hours))
     return p
 
@@ -49,7 +49,7 @@ def test_refresh_with_api_down_raises_controlled(svc):
 
 def test_collect_with_api_down_logs_error(svc):
     svc.client = DownClient(svc.s)
-    r = svc.collect("lego")
+    r = svc.collect("games")
     assert "error" in r and svc.db.recent_runs(1)[0]["error"]
 
 
@@ -67,10 +67,10 @@ def test_concurrent_collects_do_not_duplicate(svc):
             return super().search(*a, **k)
     svc.client = Slow(svc.s, jitter=0)
     results = []
-    ths = [threading.Thread(target=lambda: results.append(svc.collect("lego"))) for _ in range(5)]
+    ths = [threading.Thread(target=lambda: results.append(svc.collect("games"))) for _ in range(5)]
     [t.start() for t in ths]
     [t.join() for t in ths]
-    asins = [p["asin"] for p in svc.db.list_posts(["pending"], niche_id="lego")]
+    asins = [p["asin"] for p in svc.db.list_posts(["pending"], niche_id="games")]
     assert len(asins) == len(set(asins)) == 3
     assert sum("skipped" in r for r in results) == 4
 
@@ -81,10 +81,10 @@ def test_unique_index_blocks_duplicates_across_processes(svc):
     from app.db import DuplicateActivePostError
     from app.models import Offer
     o = Offer(asin="B0DUPDUP01", title="t", url="u", price_cents=1)
-    svc.db.create_post("lego", o, "H", "t", 1)
+    svc.db.create_post("games", o, "H", "t", 1)
     with pytest.raises(DuplicateActivePostError):
-        svc.db.create_post("lego", o, "H", "t", 1)
-    svc.db.create_post("radar-homem", o, "H", "t", 1)          # outro nicho pode
+        svc.db.create_post("games", o, "H", "t", 1)
+    svc.db.create_post("eletronicos", o, "H", "t", 1)          # outro nicho pode
 
 
 def test_state_guards(svc):
@@ -104,7 +104,7 @@ def test_housekeeping_deletes_old(svc):
     p = _stale_post(svc, hours=0)
     svc.db.update_post(p["id"], status=PostStatus.EXPIRED, created_at=utcnow() - timedelta(days=100))
     svc.purge_old_content()
-    svc.db.log_run("lego", 0, 0, {})
+    svc.db.log_run("games", 0, 0, {})
     with svc.db._lock:
         svc.db._conn.execute("UPDATE runs SET started_at=?", ((utcnow() - timedelta(days=40)).isoformat(),))
     res = svc.housekeeping()

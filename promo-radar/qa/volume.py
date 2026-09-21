@@ -18,7 +18,7 @@ with db._lock:
         from app.db import offer_to_json
         st = statuses[i % 10] if i < N-200 else PostStatus.PENDING
         created = (utcnow() - timedelta(minutes=(N - i))).isoformat()
-        rows.append(("lego" if i%2 else "radar-homem", o.asin, st.value, "H", "texto "*60, o.price_cents, o.basis_cents, 30, rnd.random()*50,
+        rows.append(("games" if i%2 else "eletronicos", o.asin, st.value, "H", "texto "*60, o.price_cents, o.basis_cents, 30, rnd.random()*50,
                      offer_to_json(o), created, created, created if st==PostStatus.SENT else None))
     db._conn.executemany("""INSERT INTO posts(niche_id, asin, status, headline, text, price_cents, basis_cents, discount_pct,
       score, offer_json, price_checked_at, created_at, sent_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""", rows)
@@ -31,7 +31,7 @@ def tm(fn, n=20):
 res = {"posts": N, "insercao_s": round(ins,2), "tamanho_db_MB": round(os.path.getsize(path)/1e6,1),
  "list_posts_fila_ms": tm(lambda: db.list_posts(["pending","approved"])),
  "list_posts_enviados_ms": tm(lambda: db.list_posts(["sent"])),
- "last_post_for_ms": tm(lambda: db.last_post_for("lego", "B0VOL00123", ["sent","pending"]), 200),
+ "last_post_for_ms": tm(lambda: db.last_post_for("games", "B0VOL00123", ["sent","pending"]), 200),
  "get_post_ms": tm(lambda: db.get_post(N//2), 200)}
 if len(sys.argv)>3: print(json.dumps(res)); sys.exit()
 t=time.perf_counter(); n=db.purge_product_content(utcnow()-timedelta(hours=24), ["sent","expired","rejected"]); res["purge_s"]=round(time.perf_counter()-t,2); res["purge_linhas"]=n
